@@ -1,0 +1,37 @@
+"""
+apriomics: A package for generating chemical similarity priors for Bayesian models
+
+This package provides tools to:
+1. Convert chemical names to SMILES strings
+2. Generate molecular fingerprints
+3. Create similarity matrices for use as priors in Bayesian models
+"""
+
+from .priors import (
+    PriorData,
+    load_metabolites_from_excel,
+    get_smiles,
+    generate_fingerprints,
+    create_similarity_matrix,
+    get_kernel,
+    save_results,
+    run_pipeline,
+    pipe
+)
+
+from .literature import clean_pathway_list_with_llm
+
+__version__ = "0.1.0"
+
+__all__ = [
+    'PriorData',
+    'load_metabolites_from_excel',
+    'get_smiles',
+    'generate_fingerprints',
+    'create_similarity_matrix',
+    'get_kernel',
+    'save_results',
+    'run_pipeline',
+    'pipe',
+    'clean_pathway_list_with_llm'
+]

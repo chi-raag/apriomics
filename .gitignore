@@ -2,11 +2,13 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
+.python-version
 # Virtual environments
 .venv/
 env/
 venv/
+
+uv.lock
 
 # Distribution / packaging
 build/

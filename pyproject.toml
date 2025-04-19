@@ -1,0 +1,29 @@
+[project]
+name = "apriomics"
+version = "0.1.0"
+description = "A Python package for generating chemical similarity priors for Bayesian models"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "google-genai>=1.10.0",
+    "map4>=1.1.3",
+    "mhfp>=1.9.6",
+    "numba==0.56.4",
+    "numpy>=1.23.5",
+    "pandas>=2.1.0",
+    "rdkit>=2024.9.6",
+    "requests>=2.32.3",
+    "tmap>=1.2.1",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/apriomics"
+Issues = "https://github.com/yourusername/apriomics/issues"
+
+[tool.setuptools]
+packages = ["chem_priors", "chem_priors.utils", "chem_priors.models"]
+
