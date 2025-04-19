@@ -1,0 +1,38 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+
+# Caches
+.cache/
+.pytest_cache/
+
+# Built wheel files
+*.whl
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Codex reference (local AI notes)
+codex.md
