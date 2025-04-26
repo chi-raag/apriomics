@@ -25,5 +25,10 @@ Homepage = "https://github.com/yourusername/apriomics"
 Issues = "https://github.com/yourusername/apriomics/issues"
 
 [tool.setuptools]
-packages = ["chem_priors", "chem_priors.utils", "chem_priors.models"]
+packages = ["apriomics", "apriomics.utils", "apriomics.models"]
+
+[dependency-groups]
+dev = [
+    "quartodoc>=0.9.1",
+]
 
