@@ -1,0 +1,100 @@
+[
+  {
+    "objectID": "reference/index.html",
+    "href": "reference/index.html",
+    "title": "Function reference",
+    "section": "",
+    "text": "Examples of using the apriomics package.\n\n\n\nget_smiles\nRetrieve SMILES for a list of metabolite names",
+    "crumbs": [
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "reference/index.html#examples",
+    "href": "reference/index.html#examples",
+    "title": "Function reference",
+    "section": "",
+    "text": "Examples of using the apriomics package.\n\n\n\nget_smiles\nRetrieve SMILES for a list of metabolite names",
+    "crumbs": [
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "reference/get_smiles.html",
+    "href": "reference/get_smiles.html",
+    "title": "get_smiles",
+    "section": "",
+    "text": "get_smiles(priors, metabolites, max_workers=4)\nRetrieve SMILES for a list of metabolite names\n\n\npriors : PriorData Data container metabolites : list List of metabolite names max_workers : int Number of parallel workers for API requests\n\n\n\nPriorData Updated data container with SMILES",
+    "crumbs": [
+      "Examples",
+      "get_smiles"
+    ]
+  },
+  {
+    "objectID": "reference/get_smiles.html#parameters",
+    "href": "reference/get_smiles.html#parameters",
+    "title": "get_smiles",
+    "section": "",
+    "text": "priors : PriorData Data container metabolites : list List of metabolite names max_workers : int Number of parallel workers for API requests",
+    "crumbs": [
+      "Examples",
+      "get_smiles"
+    ]
+  },
+  {
+    "objectID": "reference/get_smiles.html#returns",
+    "href": "reference/get_smiles.html#returns",
+    "title": "get_smiles",
+    "section": "",
+    "text": "PriorData Updated data container with SMILES",
+    "crumbs": [
+      "Examples",
+      "get_smiles"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "docs",
+    "section": "",
+    "text": "This is a Quarto website.\nTo learn more about Quarto websites visit https://quarto.org/docs/websites."
+  },
+  {
+    "objectID": "reference/index.html#functions",
+    "href": "reference/index.html#functions",
+    "title": "Function reference",
+    "section": "",
+    "text": "Examples of using the apriomics package.\n\n\n\nget_smiles\nRetrieve SMILES for a list of metabolite names",
+    "crumbs": [
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "examples/build_signed_edges.html",
+    "href": "examples/build_signed_edges.html",
+    "title": "Using apriomics to Build Signed Edges",
+    "section": "",
+    "text": "This document demonstrates how to use the functions within the apriomics package to generate a signed edge graph based on KEGG reactions involving specified metabolites. The goal is to obtain a data structure representing relationships between metabolites within biochemical reactions:\n\nsign = -1: For substrate → product pairs.\nsign = +1: For pairs on the same side of a reaction (co-substrates or co-products).\n\nThe core functions involved are:\n\napriomics.kegg_utils.get_kegg_id_from_name: Finds KEGG Compound IDs from metabolite names.\napriomics.kegg_utils.get_reactions_for_compound: Finds KEGG Reaction IDs associated with Compound IDs.\napriomics.build_signed_edges.process_reactions: Fetches reaction details and builds the signed edge dictionary.\napriomics.build_signed_edges.write_signed_edges_csv: Saves the graph to a CSV file."
+  },
+  {
+    "objectID": "examples/build_signed_edges.html#overview",
+    "href": "examples/build_signed_edges.html#overview",
+    "title": "Using apriomics to Build Signed Edges",
+    "section": "",
+    "text": "This document demonstrates how to use the functions within the apriomics package to generate a signed edge graph based on KEGG reactions involving specified metabolites. The goal is to obtain a data structure representing relationships between metabolites within biochemical reactions:\n\nsign = -1: For substrate → product pairs.\nsign = +1: For pairs on the same side of a reaction (co-substrates or co-products).\n\nThe core functions involved are:\n\napriomics.kegg_utils.get_kegg_id_from_name: Finds KEGG Compound IDs from metabolite names.\napriomics.kegg_utils.get_reactions_for_compound: Finds KEGG Reaction IDs associated with Compound IDs.\napriomics.build_signed_edges.process_reactions: Fetches reaction details and builds the signed edge dictionary.\napriomics.build_signed_edges.write_signed_edges_csv: Saves the graph to a CSV file."
+  },
+  {
+    "objectID": "examples/build_signed_edges.html#step-by-step-example",
+    "href": "examples/build_signed_edges.html#step-by-step-example",
+    "title": "Using apriomics to Build Signed Edges",
+    "section": "Step-by-Step Example",
+    "text": "Step-by-Step Example\nLet’s walk through the process using “Glucose” and “Pyruvate” as example metabolites.\n\n1. Imports\nFirst, import the necessary functions:\n\nfrom apriomics.build_signed_edges import process_reactions, write_signed_edges_csv\nfrom apriomics.kegg_utils import get_kegg_id_from_name, get_reactions_for_compound\n\n\n\n2. Define Input Metabolites\nSpecify the list of metabolite names you are interested in.\n\nmetabolite_names = [\"Glucose\", \"Pyruvate\"]\n\n\n\n3. Get KEGG Compound IDs\nUse get_kegg_id_from_name to find the corresponding KEGG Compound IDs. We’ll collect them in a set to handle potential duplicates if multiple names map to the same ID.\n\nprint(f\"Finding KEGG Compound IDs for: {metabolite_names}\")\ncompound_ids = set()\nname_to_id_map = {}\nfor name in metabolite_names:\n    # Using exact_match=True for more specific results\n    kegg_id = get_kegg_id_from_name(name, exact_match=True)\n    if kegg_id:\n        print(f\"  Found '{name}' -&gt; {kegg_id}\")\n        compound_ids.add(kegg_id)\n        name_to_id_map[name] = kegg_id\n    else:\n        print(f\"  Warning: Could not find KEGG ID for '{name}'.\")\n\n# Check if we found any IDs\nif not compound_ids:\n    print(\"Error: No KEGG Compound IDs found. Cannot proceed.\")\n    # Handle error appropriately\n\n\n\n4. Get KEGG Reaction IDs\nNow, use get_reactions_for_compound for each Compound ID to find all associated KEGG Reaction IDs. We collect these in a set to get unique reactions.\n\nall_reaction_ids = set()\nif compound_ids:\n    for c_id in compound_ids:\n        reaction_ids = get_reactions_for_compound(c_id)\n        if reaction_ids:\n            print(f\"  Found {len(reaction_ids)} reactions for {c_id}\")\n            all_reaction_ids.update(reaction_ids)\n\n# Check if we found any reaction IDs\nif not all_reaction_ids:\n    print(\"Error: No KEGG Reaction IDs found for the specified compounds.\")\n    # Handle error appropriately\n\n\n\n5. Process Reactions and Build Edges\nPass the list of unique Reaction IDs to process_reactions. This function fetches the reaction details from KEGG and computes the signed edges.\nprint(f\"\\nProcessing {len(all_reaction_ids)} unique reactions...\")\nedges_dict = {}\nif all_reaction_ids:\n    edges_dict = process_reactions(list(all_reaction_ids))\n\n# The edges_dict looks like: {('C00031', 'C00022'): -1, ('C00022', 'C00031'): -1, ...}\n# Keys are (metabolite_i_id, metabolite_j_id) tuples, values are sign (+1 or -1)\n\nif not edges_dict:\n    print(\"Warning: No edges were generated.\")\nelse:\n    print(f\"Generated {len(edges_dict)} signed edges.\")\n    # Optionally, print a few example edges:\n    # count = 0\n    # for edge, sign in edges_dict.items():\n    #     print(f\"  Edge: {edge}, Sign: {sign}\")\n    #     count += 1\n    #     if count &gt;= 5:\n    #         break"
+  },
+  {
+    "objectID": "examples/build_signed_edges.html#running-the-original-script",
+    "href": "examples/build_signed_edges.html#running-the-original-script",
+    "title": "Using apriomics to Build Signed Edges",
+    "section": "Running the Original Script",
+    "text": "Running the Original Script\nWhile this document shows how to use the functions programmatically, the original example script (examples/use_build_signed_edges.py) provides a command-line interface for this workflow. You can run it from your terminal like this:\n# Ensure the output directory exists\nmkdir -p output\n\n# Run the script\npython examples/use_build_signed_edges.py Glucose Pyruvate -o output/glucose_pyruvate_edges.csv\n\n# Example with L-Alanine and exact matching\npython examples/use_build_signed_edges.py \"L-Alanine\" --exact-match -o output/alanine_edges.csv"
+  }
+]

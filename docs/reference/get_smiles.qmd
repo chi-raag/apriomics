@@ -1,0 +1,21 @@
+# get_smiles { #apriomics.get_smiles }
+
+```python
+get_smiles(priors, metabolites, max_workers=4)
+```
+
+Retrieve SMILES for a list of metabolite names
+
+## Parameters: {.doc-section .doc-section-parameters}
+
+priors : PriorData
+    Data container
+metabolites : list
+    List of metabolite names
+max_workers : int
+    Number of parallel workers for API requests
+
+## Returns: {.doc-section .doc-section-returns}
+
+PriorData
+    Updated data container with SMILES

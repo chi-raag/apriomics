@@ -3,12 +3,12 @@ Utilities for interacting with the KEGG database API.
 """
 
 import requests
-import sys
+import sys, typing
 
 KEGG_FIND_URL = "https://rest.kegg.jp/find/compound/{}"
 KEGG_LINK_REACTION_URL = "https://rest.kegg.jp/link/reaction/{}"
 
-def get_kegg_id_from_name(metabolite_name: str, exact_match: bool = True) -> str | None:
+def get_kegg_id_from_name(metabolite_name: str, exact_match: bool = True) -> typing.Union[str, None]:
     """
     Finds the KEGG Compound ID for a given metabolite name using the KEGG REST API.
 

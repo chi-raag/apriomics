@@ -4,7 +4,7 @@ build_signed_edges.py  –  create a CSV with (metabolite_i, metabolite_j, sign)
 • sign = –1  for substrate→product pairs
 • sign = +1  for pairs on the same side of the reaction
 """
-import re, sys, requests, pathlib, csv
+import re, sys, requests, pathlib, csv, typing
 from collections import defaultdict
 
 # ------------------------------------------------------------
@@ -84,7 +84,7 @@ def process_reactions(reaction_ids: list[str]) -> dict[tuple[str, str], int]:
 
     return edge_sign
 
-def write_signed_edges_csv(edge_sign: dict[tuple[str, str], int], output_path: str | pathlib.Path):
+def write_signed_edges_csv(edge_sign: dict[tuple[str, str], int], output_path: typing.Union[str, pathlib.Path]):
     """Writes the signed edge data to a CSV file."""
     outfile = pathlib.Path(output_path)
     with outfile.open("w", newline="") as fh:

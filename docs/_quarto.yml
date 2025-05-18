@@ -1,21 +1,29 @@
 project:
-  type: website
+  type: website  
 
-website:
-  title: "docs"
+
+website: 
+  title: "apriomics"
   navbar:
     left:
       - href: index.qmd
         text: Home
-      - about.qmd
+      - href: examples/build_signed_edges.qmd
+        text: Building
 
-format:
-  html:
-    theme:
-      - cosmo
-      - brand
-    css: styles.css
-    toc: true
+metadata-files:
+  - _sidebar.yml
 
+quartodoc:
+  # the name used to import the package you want to create reference docs for
+  package: apriomics
 
+  # write sidebar data to this file
+  sidebar: _sidebar.yml
 
+  sections:
+    - title: Functions
+      desc: Examples of using the apriomics package.
+      contents:
+        - get_smiles_from_names
+        - get_smiles
