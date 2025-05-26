@@ -69,7 +69,7 @@ class RetrievalResult:
     score: float
     source: str
 
-@dataclass
+@dataclassafds
 class LLMMetaboliteScore:
     metabolite: str
     score: float       # importance 0‑1

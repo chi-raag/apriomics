@@ -38,7 +38,7 @@ Thumbs.db
 
 # Codex reference (local AI notes)
 codex.md
-
+CLAUDE.md
 # ---------------- Quarto / quartodoc ----------------
 /.quarto/            # Quarto internal state
 docs/_site/          # rendered website
@@ -46,3 +46,5 @@ docs/_freeze/        # freeze cache (if you enable freeze)
 docs/*_cache/        # chunk caches
 docs/.ipynb_checkpoints/
 /*.DS_Store
+
+.claude
