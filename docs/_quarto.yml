@@ -25,5 +25,4 @@ quartodoc:
     - title: Functions
       desc: Examples of using the apriomics package.
       contents:
-        - get_smiles_from_names
-        - get_smiles
+        - PriorData

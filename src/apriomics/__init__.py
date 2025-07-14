@@ -23,7 +23,15 @@ from .priors import (
     pipe
 )
 
-from .literature import clean_pathway_list_with_llm
+from .literature import clean_pathway_list_with_llm, DSPyPathwayCleaner
+
+# RAG components (optional imports)
+try:
+    from .rag import HMDBParser, HMDBVectorBuilder, HMDBRetriever
+    from .rag.simple_hmdb_scraper import SimpleHMDBScraper
+    RAG_AVAILABLE = True
+except ImportError:
+    RAG_AVAILABLE = False
 
 __version__ = "0.1.0"
 
@@ -41,5 +49,11 @@ __all__ = [
     'save_results',
     'run_pipeline',
     'pipe',
-    'clean_pathway_list_with_llm'
+    'clean_pathway_list_with_llm',
+    'DSPyPathwayCleaner',
+    'RAG_AVAILABLE'
 ]
+
+# Add RAG components to __all__ if available
+if RAG_AVAILABLE:
+    __all__.extend(['HMDBParser', 'HMDBVectorBuilder', 'HMDBRetriever', 'SimpleHMDBScraper'])

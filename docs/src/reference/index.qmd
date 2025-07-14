@@ -6,4 +6,4 @@ Examples of using the apriomics package.
 
 | | |
 | --- | --- |
-| [get_smiles](get_smiles.qmd#apriomics.get_smiles) | Retrieve SMILES for a list of metabolite names |
+| [PriorData](PriorData.qmd#apriomics.PriorData) |  |

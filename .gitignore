@@ -48,3 +48,24 @@ docs/.ipynb_checkpoints/
 /*.DS_Store
 
 .claude
+
+# Scratch directory for temporary testing
+scratch/
+apriomics-jsm/
+
+# Development tools and test files (not for distribution)
+dev-tools/test_*.py
+dev-tools/package*.json
+
+# Presentation materials (not for distribution)
+presentation-materials/*.png
+presentation-materials/*.pdf
+
+# Large data files
+*.xml
+*.gz
+*.zip
+data/hmdb_metabolites.xml
+
+# Output directories
+output/

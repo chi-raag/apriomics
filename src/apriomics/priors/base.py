@@ -2,10 +2,10 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from .utils.smiles import get_smiles_from_names
-from .utils.fingerprints import generate_map4_fingerprints, create_similarity_matrix as create_similarity_matrix_util
-from .utils.fingerprints import calculate_fingerprints_batch
-from .hmdb_utils import batch_get_metabolite_contexts, EXAMPLE_METABOLITE_MAPPINGS
+from ..hmdb_utils import batch_get_metabolite_contexts, EXAMPLE_METABOLITE_MAPPINGS
+from ..utils.smiles import get_smiles_from_names
+from ..utils.fingerprints import generate_map4_fingerprints, create_similarity_matrix as create_similarity_matrix_util
+from ..utils.fingerprints import calculate_fingerprints_batch
 from typing import Dict, List, Tuple, Any, Optional, Union
 
 # Data structure to pass between functions
@@ -57,6 +57,44 @@ def load_metabolites_from_excel(file_paths: Union[str, List[str]]) -> List[str]:
     
     return metabolites
 
+def load_mtbls1_data(file_path: str) -> Tuple[List[str], List[str], np.ndarray]:
+    """
+    Loads and processes the MTBLS1 dataset from the specified TSV file.
+
+    Args:
+        file_path: The path to the MTBLS1 data file 
+                   (m_MTBLS1_metabolite_profiling_NMR_spectroscopy_v2_maf.tsv).
+
+    Returns:
+        A tuple containing:
+        - A list of metabolite names.
+        - A list of sample names.
+        - A numpy array of the abundance data (metabolites x samples).
+    """
+    try:
+        df = pd.read_csv(file_path, sep='\t')
+    except FileNotFoundError:
+        print(f"Error: The file was not found at {file_path}", file=sys.stderr)
+        raise
+
+    # Extract metabolite names
+    metabolite_names = df['metabolite_identification'].tolist()
+
+    # Identify sample columns (they typically start with a study-specific prefix)
+    sample_columns = [col for col in df.columns if 'ADG' in col or 'smallmolecule_abundance' not in col and col not in [
+        'database_identifier', 'chemical_formula', 'smiles', 'inchi', 
+        'metabolite_identification', 'chemical_shift', 'multiplicity', 'taxid', 
+        'species', 'database', 'database_version', 'reliability', 'uri', 
+        'search_engine', 'search_engine_score']]
+    
+    # Extract abundance data
+    abundance_data = df[sample_columns].values
+
+    # The data is samples x metabolites, so we transpose it
+    abundance_data = abundance_data.T
+
+    return metabolite_names, sample_columns, abundance_data
+
 def get_hmdb_contexts(priors: PriorData, metabolites: List[str], 
                       hmdb_mapping: Optional[Dict[str, str]] = None) -> PriorData:
     """
@@ -87,7 +125,7 @@ def get_hmdb_contexts(priors: PriorData, metabolites: List[str],
         fingerprints_data=priors.fingerprints_data,
         similarity_matrix=priors.similarity_matrix,
         metabolite_names=priors.metabolite_names,
-        hmdb_contexts=hmdb_contexts
+        hmdb_contexts=priors.hmdb_contexts
     )
 
 def get_smiles(priors: PriorData, metabolites: List[str], max_workers: int = 4) -> PriorData:
@@ -175,7 +213,7 @@ def create_similarity_matrix(priors: PriorData) -> PriorData:
         dimensions=priors.dimensions,
         smiles_data=priors.smiles_data,
         fingerprints_data=priors.fingerprints_data,
-        similarity_matrix=similarity_matrix,
+        similarity_matrix=priors.similarity_matrix,
         metabolite_names=metabolite_names,
         hmdb_contexts=priors.hmdb_contexts
     )
@@ -257,7 +295,9 @@ def get_metabolite_context_for_llm(priors: PriorData, condition: str = "") -> st
     return "\n".join(context_parts)
 
 def get_llm_differential_priors(priors: PriorData, condition: str, 
-                               llm_scorer=None, batch_size: int = 10) -> Dict[str, float]:
+                               llm_scorer=None, batch_size: int = 10, 
+                               use_dspy: bool = True,
+                               hmdb_retriever=None) -> Dict[str, float]:
     """
     Generate LLM-informed priors for differential expression analysis.
     
@@ -271,40 +311,115 @@ def get_llm_differential_priors(priors: PriorData, condition: str,
     condition : str
         Study condition or experimental design (e.g., "diabetes vs control")
     llm_scorer : object, optional
-        LLM scorer object (e.g., GeminiScorer from llm-lasso.py). If None, returns uniform priors.
+        LLM scorer object (e.g., DSPyGeminiScorer or GeminiScorer from llm-lasso.py). 
+        If None, will create a DSPyGeminiScorer if use_dspy=True, otherwise returns uniform priors.
     batch_size : int
         Number of metabolites to process in each LLM batch
+    use_dspy : bool
+        Whether to use DSPy-based scorer (recommended)
+    hmdb_retriever : HMDBRetriever, optional
+        RAG-based HMDB retriever for enhanced context. If provided, replaces hmdb_contexts.
         
     Returns:
     --------
     dict
-        Dictionary mapping metabolite names to importance scores (0-1)
+        Dictionary mapping metabolite names to comprehensive prior information:
+        - 'relevance': float (0-1) - importance score for the condition
+        - 'direction': str - expected regulation direction ('increase', 'decrease', 'minimal', 'unclear') 
+        - 'rationale': str - explanation for the assessment
+        - 'expected_log2fc': float - expected log2-fold-change for Bayesian priors
+        - 'prior_sd': float - standard deviation for the log2fc prior
+        - 'magnitude': str - effect size category ('minimal', 'small', 'moderate', 'large')
+        - 'confidence': str - assessment confidence ('high', 'moderate', 'low')
     """
-    if priors.hmdb_contexts is None:
-        raise ValueError("No HMDB contexts available. Run get_hmdb_contexts() first.")
+    import sys
     
-    metabolites = list(priors.hmdb_contexts.keys())
+    # Determine metabolites and get contexts
+    if hmdb_retriever is not None:
+        # Use RAG retriever - get metabolites from existing data or extract from priors
+        if hasattr(priors, 'metabolite_names') and priors.metabolite_names:
+            metabolites = priors.metabolite_names
+        elif priors.hmdb_contexts:
+            metabolites = list(priors.hmdb_contexts.keys())
+        else:
+            raise ValueError("No metabolite names available. Provide metabolites in PriorData or hmdb_contexts.")
+        
+        # Get enhanced contexts using RAG
+        print("Using HMDB RAG retriever for enhanced contexts.", file=sys.stderr)
+        batch_contexts = hmdb_retriever.get_metabolite_contexts_batch(metabolites, condition=condition)
+    else:
+        # Use traditional approach
+        if priors.hmdb_contexts is None:
+            raise ValueError("No HMDB contexts available. Run get_hmdb_contexts() first or provide hmdb_retriever.")
+        
+        metabolites = list(priors.hmdb_contexts.keys())
+        batch_contexts = priors.hmdb_contexts
     
-    # If no LLM scorer provided, return uniform priors
+    # If no LLM scorer provided, create one or return uniform priors
     if llm_scorer is None:
-        print("Warning: No LLM scorer provided. Returning uniform priors.", file=sys.stderr)
-        return {met: 0.5 for met in metabolites}
+        if use_dspy:
+            try:
+                # Import using importlib due to hyphen in filename
+                import importlib.util
+                from pathlib import Path
+                
+                # Load the llm-lasso module
+                module_path = Path(__file__).parent.parent / "llm-lasso.py"
+                spec = importlib.util.spec_from_file_location("llm_lasso", module_path)
+                llm_lasso = importlib.util.module_from_spec(spec)
+                
+                # Add to sys.modules before execution to fix dataclass issues
+                sys.modules["llm_lasso"] = llm_lasso
+                spec.loader.exec_module(llm_lasso)
+                
+                llm_scorer = llm_lasso.DSPyGeminiScorer()
+                print("Created DSPyGeminiScorer for LLM differential priors.", file=sys.stderr)
+            except Exception as e:
+                print(f"Warning: Could not create DSPyGeminiScorer: {e}. Returning uniform priors.", file=sys.stderr)
+                return {met: {
+                    'relevance': 0.5, 
+                    'direction': 'unclear', 
+                    'rationale': 'LLM scorer unavailable',
+                    'expected_log2fc': 0.0,
+                    'prior_sd': 0.8,
+                    'magnitude': 'moderate',
+                    'confidence': 'low'
+                } for met in metabolites}
+        else:
+            print("Warning: No LLM scorer provided and use_dspy=False. Returning uniform priors.", file=sys.stderr)
+            return {met: {
+                'relevance': 0.5, 
+                'direction': 'unclear', 
+                'rationale': 'No LLM scorer provided',
+                'expected_log2fc': 0.0,
+                'prior_sd': 0.8,
+                'magnitude': 'moderate',
+                'confidence': 'low'
+            } for met in metabolites}
     
     # Process metabolites in batches using LLM scorer
     differential_priors = {}
     
     for i in range(0, len(metabolites), batch_size):
         batch_metabolites = metabolites[i:i + batch_size]
-        batch_contexts = {met: priors.hmdb_contexts[met] for met in batch_metabolites}
+        batch_contexts_subset = {met: batch_contexts[met] for met in batch_metabolites if met in batch_contexts}
         
         try:
             # Use the LLM scorer to get importance scores
-            llm_scores = llm_scorer.score_batch(condition, batch_contexts)
+            llm_scores = llm_scorer.score_batch(condition, batch_contexts_subset)
             
-            # Extract importance scores
+            # Extract comprehensive information (relevance, direction, rationale, quantitative priors)
             for score_obj in llm_scores:
                 if hasattr(score_obj, 'metabolite') and hasattr(score_obj, 'score'):
-                    differential_priors[score_obj.metabolite] = float(score_obj.score)
+                    differential_priors[score_obj.metabolite] = {
+                        'relevance': float(score_obj.score),
+                        'direction': getattr(score_obj, 'direction', 'unclear'),
+                        'rationale': getattr(score_obj, 'rationale', 'No explanation provided'),
+                        'expected_log2fc': getattr(score_obj, 'expected_log2fc', 0.0),
+                        'prior_sd': getattr(score_obj, 'prior_sd', 0.5),
+                        'magnitude': getattr(score_obj, 'magnitude', 'moderate'),
+                        'confidence': getattr(score_obj, 'confidence', 'moderate')
+                    }
                 else:
                     # Fallback if score object structure is different
                     print(f"Warning: Unexpected LLM score format for batch starting at {i}", file=sys.stderr)
@@ -313,12 +428,28 @@ def get_llm_differential_priors(priors: PriorData, condition: str,
             print(f"Error processing LLM batch starting at {i}: {e}", file=sys.stderr)
             # Assign default scores for this batch
             for met in batch_metabolites:
-                differential_priors[met] = 0.5
+                differential_priors[met] = {
+                    'relevance': 0.5, 
+                    'direction': 'unclear', 
+                    'rationale': f'Error in LLM processing: {str(e)[:100]}',
+                    'expected_log2fc': 0.0,
+                    'prior_sd': 0.8,
+                    'magnitude': 'moderate',
+                    'confidence': 'low'
+                }
     
     # Ensure all metabolites have scores
     for met in metabolites:
         if met not in differential_priors:
-            differential_priors[met] = 0.5
+            differential_priors[met] = {
+                'relevance': 0.5, 
+                'direction': 'unclear', 
+                'rationale': 'Metabolite not processed by LLM',
+                'expected_log2fc': 0.0,
+                'prior_sd': 0.8,
+                'magnitude': 'moderate',
+                'confidence': 'low'
+            }
     
     return differential_priors
 
@@ -505,4 +636,4 @@ def pipe(data, *functions):
 
 # Example of more pure functional usage without PriorData class (alternative approach)
 # This would require rewriting the functions to accept and return plain dictionaries
-# instead of the PriorData class 
+# instead of the PriorData class

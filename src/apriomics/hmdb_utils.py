@@ -4,11 +4,11 @@ Utilities for interacting with the HMDB (Human Metabolome Database).
 
 import requests
 import sys
-import typing
 from dataclasses import dataclass
 from typing import Optional, Dict, List, Union
 import xml.etree.ElementTree as ET
 import json
+from urllib.parse import urlparse # Added import
 
 HMDB_SEARCH_URL = "https://hmdb.ca/unearth/q"
 HMDB_METABOLITE_URL = "https://hmdb.ca/metabolites/{}.xml"
@@ -23,15 +23,18 @@ class HMDBMetabolite:
     taxonomy: Optional[str] = None
     ontology: Optional[str] = None 
     smiles: Optional[str] = None
-    pathways: List[str] = None
-    diseases: List[str] = None
-    tissues: List[str] = None
-    biospecimens: List[str] = None
-    concentrations: List[Dict[str, str]] = None
+    pathways: Optional[List[str]] = None
+    reaction_partners: Optional[List[str]] = None
+    diseases: Optional[List[str]] = None
+    tissues: Optional[List[str]] = None
+    biospecimens: Optional[List[str]] = None
+    concentrations: Optional[List[Dict[str, str]]] = None
     
     def __post_init__(self):
         if self.pathways is None:
             self.pathways = []
+        if self.reaction_partners is None:
+            self.reaction_partners = []
         if self.diseases is None:
             self.diseases = []
         if self.tissues is None:
@@ -55,18 +58,39 @@ def search_hmdb_metabolite(metabolite_name: str) -> Optional[str]:
         print("Warning: Empty metabolite name provided.", file=sys.stderr)
         return None
         
-    # HMDB search functionality - this is a simplified version
-    # In practice, you might need to use their actual search API or scrape results
-    # For now, we'll implement a basic approach that could be extended
-    
     try:
-        # This is a placeholder - actual HMDB search would require
-        # either their API access or web scraping
-        # For demo purposes, we'll return None and suggest using local data
-        return None
+        params = {'query': metabolite_name}
+        # Make a GET request to the HMDB search URL
+        # HMDB's search for an exact name often redirects to the metabolite page
+        response = requests.get(HMDB_SEARCH_URL, params=params, timeout=15, allow_redirects=True)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+
+        # The final URL after redirects
+        final_url = response.url
         
-    except Exception as e:
+        # Parse the final URL to see if it's a direct metabolite page
+        parsed_url = urlparse(final_url)
+        path_parts = parsed_url.path.split('/')
+        
+        # Check if the path looks like /metabolites/HMDBXXXXXXX
+        if len(path_parts) > 2 and path_parts[-2] == 'metabolites' and path_parts[-1].startswith('HMDB'):
+            hmdb_id = path_parts[-1]
+            print(f"Found HMDB ID: {hmdb_id} for '{metabolite_name}' from URL: {final_url}", file=sys.stderr)
+            return hmdb_id
+        else:
+            # This means the search didn't redirect to a specific metabolite page
+            # It might be a search results page or something else.
+            print(f"Could not directly find HMDB ID for '{metabolite_name}'. Final URL: {final_url}", file=sys.stderr)
+            return None
+            
+    except requests.exceptions.Timeout:
+        print(f"Error: Timeout occurred while searching HMDB for '{metabolite_name}'.", file=sys.stderr)
+        return None
+    except requests.exceptions.RequestException as e:
         print(f"Error searching HMDB for '{metabolite_name}': {e}", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred while searching HMDB for '{metabolite_name}': {e}", file=sys.stderr)
         return None
 
 def get_hmdb_metabolite_data(hmdb_id: str) -> Optional[HMDBMetabolite]:
@@ -99,14 +123,23 @@ def get_hmdb_metabolite_data(hmdb_id: str) -> Optional[HMDBMetabolite]:
         taxonomy = _get_xml_text(root, 'taxonomy', '')
         smiles = _get_xml_text(root, 'smiles', '')
         ontology = _get_xml_text(root, 'ontology', '')
-        # Extract pathways
+        # Extract pathways and reaction partners
         pathways = []
+        reaction_partners = set()  # Use a set to avoid duplicates
         pathways_elem = root.find('biological_properties/pathways')
         if pathways_elem is not None:
             for pathway in pathways_elem.findall('pathway'):
                 pathway_name = _get_xml_text(pathway, 'name', '')
                 if pathway_name:
                     pathways.append(pathway_name)
+                
+                # Extract reaction partners from the pathway
+                metabolites_elem = pathway.find('metabolites')
+                if metabolites_elem is not None:
+                    for metabolite in metabolites_elem.findall('metabolite'):
+                        partner_id = _get_xml_text(metabolite, 'hmdb_id', '')
+                        if partner_id and partner_id != hmdb_id:
+                            reaction_partners.add(partner_id)
         
         # Extract diseases
         diseases = []
@@ -159,6 +192,7 @@ def get_hmdb_metabolite_data(hmdb_id: str) -> Optional[HMDBMetabolite]:
             smiles=smiles,
             ontology=ontology,
             pathways=pathways,
+            reaction_partners=list(reaction_partners),
             diseases=diseases,
             tissues=tissues,
             biospecimens=biospecimens,
@@ -273,3 +307,35 @@ EXAMPLE_METABOLITE_MAPPINGS = {
     "ADP": "HMDB0001341",
     "AMP": "HMDB0000045"
 }
+
+def build_hmdb_graph(hmdb_ids: List[str]) -> List[tuple[str, str]]:
+    """
+    Builds a metabolic network graph from a list of HMDB IDs.
+
+    Args:
+        hmdb_ids: A list of HMDB IDs to include in the graph.
+
+    Returns:
+        A list of tuples representing the edges of the graph, where each
+        edge is a pair of HMDB IDs that are reaction partners.
+        The edges are canonical (sorted) to ensure uniqueness.
+    """
+    edges = set()
+    # Create a set for quick lookups of which metabolites are in our list
+    metabolite_set = set(hmdb_ids)
+
+    for hmdb_id in hmdb_ids:
+        print(f"Fetching data for {hmdb_id}...", file=sys.stderr)
+        metabolite_data = get_hmdb_metabolite_data(hmdb_id)
+
+        if metabolite_data and metabolite_data.reaction_partners:
+            for partner_id in metabolite_data.reaction_partners:
+                # Only add edges between metabolites in the provided list
+                if partner_id in metabolite_set:
+                    # Create a canonical edge (sorted tuple) to avoid duplicates
+                    # like (A, B) and (B, A), and self-loops
+                    if hmdb_id != partner_id:
+                        edge = tuple(sorted((hmdb_id, partner_id)))
+                        edges.add(edge)
+    
+    return list(edges)

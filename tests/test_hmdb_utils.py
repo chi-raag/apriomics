@@ -13,7 +13,8 @@ from apriomics.hmdb_utils import (
     get_metabolite_context,
     batch_get_metabolite_contexts,
     _get_xml_text,
-    EXAMPLE_METABOLITE_MAPPINGS
+    EXAMPLE_METABOLITE_MAPPINGS,
+    build_hmdb_graph
 )
 
 
@@ -409,3 +410,56 @@ def sample_xml():
             </concentration>
         </normal_concentrations>
     </metabolite>"""
+
+class TestBuildHMDBGraph:
+    """Test the HMDB graph building functionality."""
+
+    @patch('apriomics.hmdb_utils.get_hmdb_metabolite_data')
+    def test_build_graph_with_mock_data(self, mock_get_data):
+        # Define mock data
+        mock_metabolites = {
+            "HMDB001": HMDBMetabolite(hmdb_id="HMDB001", name="A", reaction_partners=["HMDB002"]),
+            "HMDB002": HMDBMetabolite(hmdb_id="HMDB002", name="B", reaction_partners=["HMDB001", "HMDB003"]),
+            "HMDB003": HMDBMetabolite(hmdb_id="HMDB003", name="C", reaction_partners=["HMDB002"]),
+            "HMDB004": HMDBMetabolite(hmdb_id="HMDB004", name="D", reaction_partners=[]),
+            "HMDB005": HMDBMetabolite(hmdb_id="HMDB005", name="E", reaction_partners=["HMDB006"]), # Partner not in list
+        }
+
+        def side_effect(hmdb_id):
+            return mock_metabolites.get(hmdb_id)
+
+        mock_get_data.side_effect = side_effect
+
+        hmdb_ids_to_test = ["HMDB001", "HMDB002", "HMDB003", "HMDB004", "HMDB005"]
+        
+        result = build_hmdb_graph(hmdb_ids_to_test)
+
+        # Expected edges are canonical (sorted) tuples
+        expected_edges = {
+            ("HMDB001", "HMDB002"),
+            ("HMDB002", "HMDB003"),
+        }
+
+        # Convert result to a set of tuples for easy comparison
+        result_set = set(map(tuple, result))
+
+        assert result_set == expected_edges
+        
+    def test_build_graph_empty_list(self):
+        result = build_hmdb_graph([])
+        assert result == []
+
+    @patch('apriomics.hmdb_utils.get_hmdb_metabolite_data')
+    def test_build_graph_no_connections(self, mock_get_data):
+        mock_metabolites = {
+            "HMDB001": HMDBMetabolite(hmdb_id="HMDB001", name="A", reaction_partners=[]),
+            "HMDB002": HMDBMetabolite(hmdb_id="HMDB002", name="B", reaction_partners=[]),
+        }
+
+        def side_effect(hmdb_id):
+            return mock_metabolites.get(hmdb_id)
+
+        mock_get_data.side_effect = side_effect
+
+        result = build_hmdb_graph(["HMDB001", "HMDB002"])
+        assert result == []

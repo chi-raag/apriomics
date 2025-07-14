@@ -4,7 +4,7 @@
     "href": "reference/index.html",
     "title": "Function reference",
     "section": "",
-    "text": "Examples of using the apriomics package.\n\n\n\nget_smiles\nRetrieve SMILES for a list of metabolite names",
+    "text": "Examples of using the apriomics package.\n\n\n\nPriorData",
     "crumbs": [
       "Function reference"
     ]
@@ -64,7 +64,7 @@
     "href": "reference/index.html#functions",
     "title": "Function reference",
     "section": "",
-    "text": "Examples of using the apriomics package.\n\n\n\nget_smiles\nRetrieve SMILES for a list of metabolite names",
+    "text": "Examples of using the apriomics package.\n\n\n\nPriorData",
     "crumbs": [
       "Function reference"
     ]
@@ -96,5 +96,100 @@
     "title": "Using apriomics to Build Signed Edges",
     "section": "Running the Original Script",
     "text": "Running the Original Script\nWhile this document shows how to use the functions programmatically, the original example script (examples/use_build_signed_edges.py) provides a command-line interface for this workflow. You can run it from your terminal like this:\n# Ensure the output directory exists\nmkdir -p output\n\n# Run the script\npython examples/use_build_signed_edges.py Glucose Pyruvate -o output/glucose_pyruvate_edges.csv\n\n# Example with L-Alanine and exact matching\npython examples/use_build_signed_edges.py \"L-Alanine\" --exact-match -o output/alanine_edges.csv"
+  },
+  {
+    "objectID": "reference/PriorData.html",
+    "href": "reference/PriorData.html",
+    "title": "PriorData",
+    "section": "",
+    "text": "PriorData\nPriorData(\n    self,\n    dimensions=1024,\n    smiles_data=None,\n    fingerprints_data=None,\n    similarity_matrix=None,\n    metabolite_names=None,\n    hmdb_contexts=None,\n)",
+    "crumbs": [
+      "Functions",
+      "PriorData"
+    ]
+  },
+  {
+    "objectID": "llm-priors.html",
+    "href": "llm-priors.html",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "",
+    "text": "The apriomics package implements a method for generating biologically-informed Bayesian priors for metabolomics differential analysis. The approach combines Retrieval-Augmented Generation (RAG) with Large Language Models (LLMs) to incorporate comprehensive HMDB knowledge into quantitative priors on the log₂-fold-change scale.\n\n\nThe approach addresses the challenge of incorporating biological knowledge into statistical models by:\n\nUsing structured biological reasoning to assess metabolite regulation patterns\nRetrieving relevant information from a comprehensive HMDB knowledge base (294,781 contexts)\nConverting categorical biological assessments to quantitative prior distributions\nProviding uncertainty quantification appropriate for Bayesian inference\nEnabling analysis of large metabolite panels through batch processing"
+  },
+  {
+    "objectID": "llm-priors.html#overview",
+    "href": "llm-priors.html#overview",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "",
+    "text": "The apriomics package implements a method for generating biologically-informed Bayesian priors for metabolomics differential analysis. The approach combines Retrieval-Augmented Generation (RAG) with Large Language Models (LLMs) to incorporate comprehensive HMDB knowledge into quantitative priors on the log₂-fold-change scale.\n\n\nThe approach addresses the challenge of incorporating biological knowledge into statistical models by:\n\nUsing structured biological reasoning to assess metabolite regulation patterns\nRetrieving relevant information from a comprehensive HMDB knowledge base (294,781 contexts)\nConverting categorical biological assessments to quantitative prior distributions\nProviding uncertainty quantification appropriate for Bayesian inference\nEnabling analysis of large metabolite panels through batch processing"
+  },
+  {
+    "objectID": "llm-priors.html#quick-start",
+    "href": "llm-priors.html#quick-start",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Quick Start",
+    "text": "Quick Start\n\nInstallation & Setup\n# Ensure you have the RAG components installed\n# uv add sentence-transformers faiss-cpu scikit-learn\n\nimport os\nfrom apriomics import PriorData, get_llm_differential_priors\nfrom apriomics.rag import HMDBRetriever\nfrom pathlib import Path\n\n# Set your Google API key for LLM access\nos.environ[\"GOOGLE_API_KEY\"] = \"your-api-key-here\"\n\n\nBasic Usage\n# Define your experimental setup\nmetabolites = ['glucose', 'insulin', 'lactate', 'pyruvate']\ncondition = 'diabetes vs control'\n\n# Load the pre-built HMDB knowledge base\nretriever = HMDBRetriever(Path('apriomics/data/hmdb_index'))\n\n# Create prior data structure\npriors = PriorData()\npriors.metabolite_names = metabolites\n\n# Generate LLM-enhanced priors\nllm_priors = get_llm_differential_priors(\n    priors=priors,\n    condition=condition,\n    hmdb_retriever=retriever,\n    use_dspy=True\n)"
+  },
+  {
+    "objectID": "llm-priors.html#understanding-the-output",
+    "href": "llm-priors.html#understanding-the-output",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Understanding the Output",
+    "text": "Understanding the Output\nThe system returns comprehensive prior information for each metabolite:\nfor metabolite, prior_info in llm_priors.items():\n    print(f\"\\n{metabolite.upper()}\")\n    print(f\"   Direction:        {prior_info['direction']}\")\n    print(f\"   Magnitude:        {prior_info['magnitude']}\")  \n    print(f\"   Confidence:       {prior_info['confidence']}\")\n    print(f\"   Expected log2FC:  {prior_info['expected_log2fc']:+.3f}\")\n    print(f\"   Prior SD:         {prior_info['prior_sd']:.3f}\")\n    print(f\"   Rationale:        {prior_info['rationale'][:80]}...\")\n\nOutput Fields Explained\n\n\n\n\n\n\n\n\n\nField\nDescription\nValues\nUsage\n\n\n\n\ndirection\nExpected regulation direction\nincrease, decrease, minimal, unclear\nSign of effect\n\n\nmagnitude\nEffect size category\nminimal, small, moderate, large\nMagnitude of change\n\n\nconfidence\nAssessment certainty\nhigh, moderate, low\nPrior precision\n\n\nexpected_log2fc\nExpected log₂-fold-change\nContinuous (typically -2 to +2)\nPrior mean\n\n\nprior_sd\nPrior standard deviation\nContinuous (0.2 to 1.0)\nPrior uncertainty\n\n\nrelevance\nImportance score\n0-1 scale\nOverall relevance\n\n\nrationale\nAI explanation\nText\nBiological reasoning"
+  },
+  {
+    "objectID": "llm-priors.html#bayesian-model-integration",
+    "href": "llm-priors.html#bayesian-model-integration",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Bayesian Model Integration",
+    "text": "Bayesian Model Integration\n\nStan Example\nThe priors can be directly used in Stan models:\ndata {\n  int&lt;lower=0&gt; N;              // number of samples\n  int&lt;lower=0&gt; M;              // number of metabolites\n  matrix[N, M] y;              // metabolite abundance data\n  vector[N] condition;         // experimental condition (0/1)\n  \n  // LLM-generated priors\n  vector[M] prior_mean;        // expected_log2fc values\n  vector[M] prior_sd;          // prior_sd values\n}\n\nparameters {\n  vector[M] alpha;             // baseline abundance  \n  vector[M] beta;              // differential effects\n  real&lt;lower=0&gt; sigma;         // observation noise\n}\n\nmodel {\n  // LLM-informed priors on differential effects\n  beta ~ normal(prior_mean, prior_sd);\n  \n  // Weakly informative priors on other parameters\n  alpha ~ normal(0, 5);\n  sigma ~ exponential(1);\n  \n  // Likelihood\n  for (i in 1:N) {\n    for (j in 1:M) {\n      y[i, j] ~ normal(alpha[j] + beta[j] * condition[i], sigma);\n    }\n  }\n}\n\n\nPyMC Example\nimport pymc as pm\nimport numpy as np\n\n# Extract prior parameters\nprior_means = [llm_priors[met]['expected_log2fc'] for met in metabolites]\nprior_sds = [llm_priors[met]['prior_sd'] for met in metabolites]\n\nwith pm.Model() as model:\n    # LLM-informed priors\n    beta = pm.Normal('beta', mu=prior_means, sigma=prior_sds, shape=len(metabolites))\n    \n    # Other parameters\n    alpha = pm.Normal('alpha', mu=0, sigma=5, shape=len(metabolites))\n    sigma = pm.Exponential('sigma', lam=1)\n    \n    # Likelihood\n    mu = alpha + beta * condition_indicator\n    y_obs = pm.Normal('y_obs', mu=mu, sigma=sigma, observed=abundance_data)\n    \n    # Sample\n    trace = pm.sample(2000, tune=1000)"
+  },
+  {
+    "objectID": "llm-priors.html#advanced-usage",
+    "href": "llm-priors.html#advanced-usage",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Advanced Usage",
+    "text": "Advanced Usage\n\nCustom Conditions\n# Disease-specific conditions\ncancer_priors = get_llm_differential_priors(\n    priors=priors,\n    condition='lung cancer vs healthy',\n    hmdb_retriever=retriever\n)\n\n# Drug treatment studies  \ndrug_priors = get_llm_differential_priors(\n    priors=priors,\n    condition='metformin treatment vs placebo',\n    hmdb_retriever=retriever\n)\n\n# Dietary interventions\ndiet_priors = get_llm_differential_priors(\n    priors=priors, \n    condition='ketogenic diet vs standard diet',\n    hmdb_retriever=retriever\n)\n\n\nBatch Processing\n# Process multiple experimental conditions\nconditions = [\n    'diabetes vs control',\n    'obesity vs lean',\n    'insulin resistance vs sensitive'\n]\n\nall_priors = {}\nfor condition in conditions:\n    condition_priors = get_llm_differential_priors(\n        priors=priors,\n        condition=condition,\n        hmdb_retriever=retriever\n    )\n    all_priors[condition] = condition_priors\n\n\nPrior Validation & Adjustment\ndef validate_priors(llm_priors, metabolites):\n    \"\"\"Validate and potentially adjust LLM-generated priors.\"\"\"\n    \n    validated_priors = {}\n    \n    for metabolite in metabolites:\n        prior_info = llm_priors[metabolite].copy()\n        \n        # Check for extreme values\n        if abs(prior_info['expected_log2fc']) &gt; 3.0:\n            print(f\"Warning: Extreme log2FC for {metabolite}: {prior_info['expected_log2fc']}\")\n            prior_info['expected_log2fc'] = np.clip(prior_info['expected_log2fc'], -3.0, 3.0)\n        \n        # Ensure minimum uncertainty for low-confidence assessments\n        if prior_info['confidence'] == 'low' and prior_info['prior_sd'] &lt; 0.8:\n            prior_info['prior_sd'] = 0.8\n            \n        validated_priors[metabolite] = prior_info\n    \n    return validated_priors\n\n# Apply validation\nvalidated_priors = validate_priors(llm_priors, metabolites)"
+  },
+  {
+    "objectID": "llm-priors.html#system-architecture",
+    "href": "llm-priors.html#system-architecture",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "System Architecture",
+    "text": "System Architecture\n\nRAG Knowledge Base\nThe system uses a pre-built HMDB knowledge base containing:\n\n294,781 metabolite contexts from comprehensive HMDB parsing\n217,920 unique metabolites with biological annotations\nBioBERT embeddings for semantic similarity search\nFocused parsing emphasizing biological relevance over chemical structure\n\n\n\nLLM Processing Pipeline\n\nContext Retrieval: RAG system finds relevant HMDB information\nBiological Reasoning: LLM analyzes mechanisms and pathways\n\nCategorical Assessment: Direction, magnitude, and confidence evaluation\nQuantitative Mapping: Conversion to log₂FC priors with uncertainty\n\n\n\nCategorical-to-Quantitative Mapping\n\n\n\nDirection\nMagnitude\nExpected log₂FC\nBase SD\n\n\n\n\nincrease\nminimal\n+0.3\n0.2\n\n\nincrease\nsmall\n+0.6\n0.3\n\n\nincrease\nmoderate\n+1.0\n0.4\n\n\nincrease\nlarge\n+1.6\n0.5\n\n\ndecrease\nsmall\n-0.6\n0.3\n\n\nunclear\nany\n0.0\n0.6-1.0\n\n\n\nNote: Confidence levels (high/moderate/low) multiply base SD by 0.8/1.0/1.4 respectively."
+  },
+  {
+    "objectID": "llm-priors.html#best-practices",
+    "href": "llm-priors.html#best-practices",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Best Practices",
+    "text": "Best Practices\n\nCondition Specification\nEffective condition descriptions: - \"diabetes vs control\" - \"Alzheimer's disease vs healthy aging\" - \"high-fat diet vs standard chow\" - \"acute exercise vs rest\"\nAvoid vague descriptions: - \"disease vs normal\" - \"treatment vs control\" - \"condition A vs B\"\n\n\nMetabolite Selection\nEffective metabolite lists: - Include metabolites with known biological relevance - Mix well-studied and novel metabolites - Consider pathway coverage\nAvoid: - Only obscure or unnamed metabolites - Metabolites with ambiguous identities - Very large lists (&gt;100) without batching\n\n\nPrior Interpretation\nAppropriate use: - Incorporate biological knowledge into statistical models - Improve statistical power for detecting true effects - Guide interpretation of results\nLimitations: - Priors should not override strong empirical evidence - Results depend on quality of biological knowledge base - Generated priors reflect current understanding and may contain biases"
+  },
+  {
+    "objectID": "llm-priors.html#troubleshooting",
+    "href": "llm-priors.html#troubleshooting",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Troubleshooting",
+    "text": "Troubleshooting\n\nCommon Issues\nIssue: Empty or unexpected results\n# Check HMDB index availability\nif not Path('apriomics/data/hmdb_index').exists():\n    print(\"Build HMDB index first: uv run python build_hmdb_index.py\")\nIssue: API rate limits or errors\n# Add error handling and retries\ntry:\n    llm_priors = get_llm_differential_priors(...)\nexcept Exception as e:\n    print(f\"LLM error: {e}\")\n    # Fall back to uniform priors or retry\nIssue: Unexpected categorical values\n# Validate LLM outputs\nfor met, info in llm_priors.items():\n    if info['direction'] not in ['increase', 'decrease', 'minimal', 'unclear']:\n        print(f\"Unexpected direction for {met}: {info['direction']}\")\n\n\nPerformance Optimization\n# For large metabolite lists, use batching\ndef process_large_metabolite_list(metabolites, condition, batch_size=20):\n    all_priors = {}\n    \n    for i in range(0, len(metabolites), batch_size):\n        batch = metabolites[i:i+batch_size]\n        \n        batch_priors_data = PriorData()\n        batch_priors_data.metabolite_names = batch\n        \n        batch_priors = get_llm_differential_priors(\n            priors=batch_priors_data,\n            condition=condition,\n            hmdb_retriever=retriever,\n            batch_size=10  # LLM batch size\n        )\n        \n        all_priors.update(batch_priors)\n    \n    return all_priors"
+  },
+  {
+    "objectID": "llm-priors.html#citing-this-work",
+    "href": "llm-priors.html#citing-this-work",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Citing This Work",
+    "text": "Citing This Work\nIf you use the LLM-enhanced prior generation in your research, please cite:\n@software{apriomics_llm_priors,\n  title = {LLM-Enhanced Metabolite Priors for Bayesian Analysis},\n  author = {apriomics contributors},\n  year = {2024},\n  url = {https://github.com/your-org/apriomics},\n  note = {AI-powered biological prior generation using RAG and categorical assessment}\n}"
+  },
+  {
+    "objectID": "llm-priors.html#future-directions",
+    "href": "llm-priors.html#future-directions",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Future Directions",
+    "text": "Future Directions\nPotential extensions to this approach include:\n\nDevelopment of pathway-level priors for hierarchical modeling\nCross-study validation of generated priors\nAdaptive prior updating based on empirical data\nIntegration with existing metabolomics analysis workflows"
+  },
+  {
+    "objectID": "llm-priors.html#summary",
+    "href": "llm-priors.html#summary",
+    "title": "LLM-Enhanced Metabolite Priors",
+    "section": "Summary",
+    "text": "Summary\nThis method provides a systematic approach to incorporating biological knowledge into Bayesian metabolomics analysis. By combining language model reasoning with comprehensive metabolite databases, it enables the generation of informed priors that can improve the sensitivity and interpretability of differential analysis while maintaining appropriate uncertainty quantification."
   }
 ]

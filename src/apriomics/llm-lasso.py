@@ -38,7 +38,7 @@ import os
 import json
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import List, Dict, Iterable, Optional
+from typing import List, Dict, Iterable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -60,6 +60,9 @@ except ImportError:  # demo mode works without
 # Gemini
 import google.generativeai as genai  # type: ignore
 
+# DSPy
+import dspy
+
 # ------------------------------------------------------------------
 # dataclasses
 # ------------------------------------------------------------------
@@ -69,13 +72,18 @@ class RetrievalResult:
     score: float
     source: str
 
-@dataclassafds
+@dataclass
 class LLMMetaboliteScore:
     metabolite: str
-    score: float       # importance 0‑1
-    direction: str     # up / down / ambiguous
+    score: float       # importance 0‑1 (derived from abs(log2fc))
+    direction: str     # increase / decrease / minimal / unclear
     rationale: str
     provenance: List[str] = field(default_factory=list)
+    # New quantitative prior fields
+    expected_log2fc: float = 0.0      # Expected log2-fold-change
+    prior_sd: float = 0.5             # Prior standard deviation
+    magnitude: str = "moderate"       # minimal / small / moderate / large
+    confidence: str = "moderate"      # high / moderate / low
 
 # ------------------------------------------------------------------
 # FAISS retriever (optional)
@@ -95,7 +103,164 @@ class TextRetriever:
         return [RetrievalResult(self.meta[i]["text"], float(scores[0, j]), self.meta[i]["source"]) for j, i in enumerate(ids[0])]
 
 # ------------------------------------------------------------------
-# Gemini scorer
+# DSPy Signatures
+# ------------------------------------------------------------------
+class MetaboliteRegulationAssessment(dspy.Signature):
+    """Assess expected metabolite regulation in differential analysis"""
+    condition = dspy.InputField(desc="Study condition (e.g., 'diabetes vs control')")
+    evidence = dspy.InputField(desc="HMDB metabolite evidence and context")
+    metabolites = dspy.InputField(desc="List of metabolites to assess")
+    
+    regulations = dspy.OutputField(desc="""
+    For each metabolite, assess expected regulation:
+    
+    [
+        {
+            "name": "glucose",
+            "direction": "increase",           // increase|decrease|minimal|unclear
+            "magnitude": "moderate",           // minimal|small|moderate|large
+            "confidence": "high",              // high|moderate|low  
+            "rationale": "Primary substrate elevated due to insulin resistance"
+        }
+    ]
+    
+    Direction guide:
+    - increase: expected to be elevated in condition
+    - decrease: expected to be reduced in condition  
+    - minimal: little to no change expected
+    - unclear: could go either direction
+    
+    Magnitude guide:
+    - minimal: barely detectable change
+    - small: noticeable but modest change
+    - moderate: substantial change, likely detectable
+    - large: major change, easily detectable
+    """)
+
+# ------------------------------------------------------------------
+# Regulation mapping for categorical to quantitative conversion
+# ------------------------------------------------------------------
+REGULATION_MAPPING = {
+    ('increase', 'minimal'):  {'log2fc': 0.3, 'sd': 0.2},
+    ('increase', 'small'):    {'log2fc': 0.6, 'sd': 0.3}, 
+    ('increase', 'moderate'): {'log2fc': 1.0, 'sd': 0.4},
+    ('increase', 'large'):    {'log2fc': 1.6, 'sd': 0.5},
+    
+    ('decrease', 'minimal'):  {'log2fc': -0.3, 'sd': 0.2},
+    ('decrease', 'small'):    {'log2fc': -0.6, 'sd': 0.3},
+    ('decrease', 'moderate'): {'log2fc': -1.0, 'sd': 0.4}, 
+    ('decrease', 'large'):    {'log2fc': -1.6, 'sd': 0.5},
+    
+    ('minimal', 'minimal'):   {'log2fc': 0.0, 'sd': 0.2},
+    ('minimal', 'small'):     {'log2fc': 0.0, 'sd': 0.3},
+    ('minimal', 'moderate'):  {'log2fc': 0.0, 'sd': 0.3},
+    ('minimal', 'large'):     {'log2fc': 0.0, 'sd': 0.3},
+    
+    ('unclear', 'minimal'):   {'log2fc': 0.0, 'sd': 0.6},
+    ('unclear', 'small'):     {'log2fc': 0.0, 'sd': 0.7},
+    ('unclear', 'moderate'):  {'log2fc': 0.0, 'sd': 0.8},
+    ('unclear', 'large'):     {'log2fc': 0.0, 'sd': 1.0},
+}
+
+CONFIDENCE_MULTIPLIER = {
+    'high': 0.8,      # Tighter priors
+    'moderate': 1.0,   # Standard  
+    'low': 1.4        # Wider priors
+}
+
+# ------------------------------------------------------------------
+# DSPy-based Gemini scorer
+# ------------------------------------------------------------------
+class DSPyGeminiScorer:
+    def __init__(self, model: str = "gemini-2.0-flash", temperature: float = 0.2):
+        key = os.getenv("GOOGLE_API_KEY")
+        if not key:
+            raise EnvironmentError("Set GOOGLE_API_KEY env var.")
+        
+        # Configure DSPy with Gemini
+        # Use dspy.LM with proper Gemini model format
+        lm = dspy.LM(model=f"gemini/{model}", api_key=key, temperature=temperature)
+        dspy.settings.configure(lm=lm)
+        
+        # Create DSPy predictor
+        self.predictor = dspy.Predict(MetaboliteRegulationAssessment)
+    
+    def score_batch(self, condition: str, batch_snips: Dict[str, str]) -> List[LLMMetaboliteScore]:
+        """Assess metabolite regulation using categorical approach"""
+        # Format evidence
+        evidence = "\n".join([f"### {m}\n{s}" for m, s in batch_snips.items()])
+        metabolites = ", ".join(list(batch_snips.keys()))
+        
+        try:
+            # Use DSPy predictor
+            result = self.predictor(
+                condition=condition,
+                evidence=evidence,
+                metabolites=metabolites
+            )
+            
+            # Parse the structured output
+            regulations_text = result.regulations
+            
+            # Handle potential markdown formatting
+            if regulations_text.startswith("```json"):
+                regulations_text = regulations_text.strip("```json\n").strip("\n```")
+            elif regulations_text.startswith("```"):
+                regulations_text = regulations_text.strip("```\n").strip("\n```")
+            
+            parsed = json.loads(regulations_text)
+            
+            # Validate response
+            if len(parsed) != len(batch_snips):
+                raise ValueError(
+                    f"DSPy response returned {len(parsed)} metabolite assessments, "
+                    f"but {len(batch_snips)} were requested for this batch."
+                )
+            
+            # Convert categorical assessments to quantitative priors
+            results = []
+            for assessment in parsed:
+                direction = assessment.get("direction", "unclear").lower()
+                magnitude = assessment.get("magnitude", "small").lower()
+                confidence = assessment.get("confidence", "moderate").lower()
+                
+                # Get base mapping
+                mapping_key = (direction, magnitude)
+                if mapping_key not in REGULATION_MAPPING:
+                    # Fallback for unexpected combinations
+                    mapping_key = ("unclear", "moderate")
+                
+                base_mapping = REGULATION_MAPPING[mapping_key]
+                
+                # Apply confidence adjustment
+                confidence_mult = CONFIDENCE_MULTIPLIER.get(confidence, 1.0)
+                adjusted_sd = base_mapping['sd'] * confidence_mult
+                
+                # Create LLMMetaboliteScore with quantitative values
+                # Use relevance as abs(log2fc) normalized to 0-1 scale
+                relevance = min(abs(base_mapping['log2fc']) / 2.0, 1.0)  # Scale to 0-1
+                
+                results.append(LLMMetaboliteScore(
+                    metabolite=assessment["name"],
+                    score=relevance,
+                    direction=direction,
+                    rationale=assessment.get("rationale", ""),
+                    # Add new fields for the quantitative prior info
+                    expected_log2fc=base_mapping['log2fc'],
+                    prior_sd=adjusted_sd,
+                    magnitude=magnitude,
+                    confidence=confidence
+                ))
+            
+            return results
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"DSPy response not valid JSON: {e}. Response: {result.regulations}") from e
+        except Exception as e:
+            raise ValueError(f"Error in DSPy metabolite regulation assessment: {e}") from e
+
+# ------------------------------------------------------------------
+# Legacy Gemini scorer (kept for backward compatibility)
 # ------------------------------------------------------------------
 class GeminiScorer:
     def __init__(self, model: str = "gemini-2.0-flash", temperature: float = 0.2):
@@ -118,14 +283,13 @@ class GeminiScorer:
         prompt = self._prompt(condition, "\n".join([f"### {m}\n{s}" for m, s in batch_snips.items()]), list(batch_snips))
         resp = self.model.generate_content(prompt, generation_config={"temperature": self.temperature, "max_output_tokens": 4096})
         try:
-            # It's good practice to check if the response has parts and text before trying to parse.
             if not resp.parts:
                 error_message = "Gemini response is empty or malformed. "
                 if hasattr(resp, 'candidates') and resp.candidates:
                     error_message += f"Candidates: {resp.candidates}. "
                 if hasattr(resp, 'prompt_feedback') and resp.prompt_feedback:
                     error_message += f"Prompt Feedback: {resp.prompt_feedback}. "
-                if hasattr(resp, 'text'): # Check if text attribute exists
+                if hasattr(resp, 'text'):
                      error_message += f"Response Text: '{resp.text}'"
                 else:
                     error_message += "No text attribute in response."
@@ -140,7 +304,6 @@ class GeminiScorer:
                     error_message += f"Prompt Feedback: {resp.prompt_feedback}. "
                  raise ValueError(error_message)
 
-            # Strip markdown fences if present
             if response_text.startswith("```json"):
                 response_text = response_text.strip("```json\n")
                 response_text = response_text.strip("\n```")
@@ -150,7 +313,6 @@ class GeminiScorer:
 
             parsed = json.loads(response_text)
             
-            # Validate that the number of returned scores matches the number of requested metabolites
             if len(parsed) != len(batch_snips):
                 raise ValueError(
                     f"Gemini response returned {len(parsed)} metabolite scores, "
@@ -165,7 +327,7 @@ class GeminiScorer:
             if hasattr(resp, 'prompt_feedback') and resp.prompt_feedback:
                 error_message += f"Prompt Feedback: {resp.prompt_feedback}. "
             raise ValueError(error_message) from e
-        except Exception as e: # Catch other potential errors from accessing resp.text or resp.parts
+        except Exception as e:
             error_message = f"Error processing Gemini response. Original error: {e}. "
             if hasattr(resp, 'candidates') and resp.candidates:
                 error_message += f"Candidates: {resp.candidates}. "
@@ -206,7 +368,7 @@ class WeightedLasso:
 # End‑to‑end pipeline
 # ------------------------------------------------------------------
 class LLMLassoPipeline:
-    def __init__(self, llm: GeminiScorer, retriever: Optional[TextRetriever] = None,
+    def __init__(self, llm: Union[GeminiScorer, DSPyGeminiScorer], retriever: Optional[TextRetriever] = None,
                  gamma_grid: Iterable[float] = (0, 0.25, 0.5, 0.75, 1),
                  alpha_grid: Iterable[float] = (0.01, 0.1, 1, 10),
                  cv: int = 5, seed: int = 42):
@@ -223,7 +385,14 @@ class LLMLassoPipeline:
     def _evidence(self, mets: List[str], cond: str, k: int = 5) -> Dict[str, str]:
         if self.retriever is None:
             return {m: "" for m in mets}
-        return {m: " ".join(r.text for r in self.retriever.query(f"{m} {cond}", k))[:750] for m in mets}
+        
+        # Check if this is an HMDB retriever (duck typing)
+        if hasattr(self.retriever, 'get_metabolite_contexts_batch'):
+            # Use HMDB RAG retriever
+            return self.retriever.get_metabolite_contexts_batch(mets, condition=cond)
+        else:
+            # Use legacy TextRetriever
+            return {m: " ".join(r.text for r in self.retriever.query(f"{m} {cond}", k))[:750] for m in mets}
 
     def _score(self, mets: List[str], cond: str) -> List[LLMMetaboliteScore]:
         batch = max(10, int(np.sqrt(len(mets))))
@@ -286,7 +455,7 @@ def demo():
     y = np.concatenate([np.zeros(n // 2), np.ones(n // 2)])
     X = pd.DataFrame({m: rng.normal(0, 1, n) + y * rng.normal(1.0, 0.5) for m in mets})
     y_ser = pd.Series(y)
-    pipe = LLMLassoPipeline(llm=GeminiScorer(), retriever=None, gamma_grid=[0, 0.5, 1], alpha_grid=[0.01, 0.1, 1])
+    pipe = LLMLassoPipeline(llm=DSPyGeminiScorer(), retriever=None, gamma_grid=[0, 0.5, 1], alpha_grid=[0.01, 0.1, 1])
     pipe.fit(X, y_ser, "ER+ breast cancer vs healthy control")
     print(pipe.coefficients())
 
@@ -357,7 +526,7 @@ def main():
 
     # Components
     retriever = TextRetriever(Path(args.embeddings)) if args.embeddings else None
-    pipeline = LLMLassoPipeline(llm=GeminiScorer(), retriever=retriever)
+    pipeline = LLMLassoPipeline(llm=DSPyGeminiScorer(), retriever=retriever)
 
     # Fit
     pipeline.fit(X, y, cond=args.design)

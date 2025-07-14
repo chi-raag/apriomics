@@ -1,0 +1,14 @@
+# PriorData { #apriomics.PriorData }
+
+```python
+PriorData(
+    self,
+    dimensions=1024,
+    smiles_data=None,
+    fingerprints_data=None,
+    similarity_matrix=None,
+    metabolite_names=None,
+    hmdb_contexts=None,
+)
+```
+

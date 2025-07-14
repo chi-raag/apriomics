@@ -3,7 +3,7 @@ website:
   - contents:
     - reference/index.qmd
     - contents:
-      - reference/get_smiles.qmd
+      - reference/PriorData.qmd
       section: Functions
     id: reference
   - id: dummy-sidebar

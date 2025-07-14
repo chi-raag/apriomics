@@ -5,6 +5,7 @@ description = "A Python package for generating chemical similarity priors for Ba
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+    "dspy>=2.6.13",
     "faiss-cpu>=1.8.0.post1",
     "google-genai>=1.10.0",
     "google-generativeai>=0.8.5",
@@ -30,13 +31,18 @@ build-backend = "setuptools.build_meta"
 Homepage = "https://github.com/yourusername/apriomics"
 Issues = "https://github.com/yourusername/apriomics/issues"
 
-[tool.setuptools]
-packages = ["apriomics", "apriomics.utils", "apriomics.models"]
+[tool.setuptools.packages.find]
+where = ["src"]
+
 
 [dependency-groups]
 dev = [
     "jupyter>=1.1.1",
+    "mypy>=1.16.1",
     "pytest>=8.3.5",
     "quartodoc>=0.9.1",
+    "ruff>=0.12.2",
+    "seaborn>=0.13.2",
+    "types-requests>=2.32.4.20250611",
 ]
 
