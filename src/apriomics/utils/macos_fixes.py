@@ -31,7 +31,7 @@ def suppress_multiprocessing_warnings():
             def silent_warn(message, category=None, filename='', lineno=-1, file=None, stacklevel=1):
                 if 'resource_tracker' in str(message) or 'leaked semaphore' in str(message):
                     return  # Suppress these specific warnings
-                return original_warn(message, category, filename, lineno, file, stacklevel)
+                return original_warn(message, category, stacklevel=stacklevel)
             
             warnings.warn = silent_warn
             

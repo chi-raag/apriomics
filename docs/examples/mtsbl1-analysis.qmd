@@ -1,0 +1,484 @@
+---
+title: MTSB1 Analysis
+author: Chiraag Gohel
+---
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from chembridge.databases.hmdb import HMDBClient
+from chembridge import get_metabolite_name, map_metabolites
+
+import pymc as pm
+```
+
+```{python}
+data = pd.read_csv(
+    "data/m_MTBLS1_metabolite_profiling_NMR_spectroscopy_v2_maf.tsv",
+    sep="\t",
+)
+
+metadata = pd.read_csv("data/s_MTBLS1.txt", sep="\t")
+```
+
+```{python}
+# map the metabolite names to their HMDB identifiers
+mapped_data = map_metabolites(
+    data["database_identifier"].tolist(), source="chebi", target="hmdb"
+)
+
+data["hmdb_id"] = mapped_data.df()["hmdb_id"]
+filtered_data = data[data["hmdb_id"].notna()]
+```
+
+## LLM-Based Bayesian Priors for Differential Expression
+
+This section demonstrates how to generate informed Bayesian priors using Google's Gemini Flash LLM combined with HMDB metabolite data.
+
+### Setup Instructions
+
+**Required**: You need a Google API key to use Gemini Flash for prior generation.
+
+1. **Get a Google API key:**
+   - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a new API key
+   - Copy the key
+
+2. **Set the environment variable:**
+   
+   **macOS/Linux:**
+   ```bash
+   export GOOGLE_API_KEY="your_api_key_here"
+   ```
+   
+   **Windows:**
+   ```cmd
+   set GOOGLE_API_KEY=your_api_key_here
+   ```
+   
+   **Or add to your `.bashrc`/`.zshrc`:**
+   ```bash
+   echo 'export GOOGLE_API_KEY="your_api_key_here"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+3. **Verify setup:**
+   ```python
+   import os
+   print("API Key set:", "Yes" if os.getenv("GOOGLE_API_KEY") else "No")
+   ```
+
+```{python}
+# Generate Bayesian priors for differential expression using Gemini Flash
+import os
+from apriomics.priors import PriorData, get_llm_differential_priors
+from chembridge.databases.hmdb import HMDBClient
+
+# Check API key setup
+if not os.getenv("GOOGLE_API_KEY"):
+    print("⚠️  GOOGLE_API_KEY not found!")
+    print("Please set your Google API key as shown in the instructions above.")
+    print("Without it, only uniform priors will be generated.")
+else:
+    print("✅ Google API key found - ready for LLM prior generation!")
+
+# Set up metabolites from MTBLS1 data - use the HMDB IDs we already have
+sample_data = filtered_data[["metabolite_identification", "hmdb_id"]]
+print("Analyzing metabolites with HMDB IDs:")
+for _, row in sample_data.iterrows():
+    print(f"  {row['metabolite_identification']} -> {row['hmdb_id']}")
+
+# # Get HMDB contexts using chembridge
+# hmdb_client = HMDBClient()
+# hmdb_contexts = {}
+# for _, row in sample_data.iterrows():
+#     metabolite_name = row["metabolite_identification"]
+#     hmdb_id = row["hmdb_id"]
+#     try:
+#         # Get metabolite data from chembridge
+#         metabolite_data = hmdb_client.get_metabolite_info(hmdb_id)
+#         if metabolite_data:
+#             # Format rich context for LLM
+#             context_parts = [f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id})"]
+            
+#             # Add description
+#             if metabolite_data.get("description"):
+#                 context_parts.append(f"Description: {metabolite_data['description']}")
+            
+#             # Add pathways
+#             if metabolite_data.get("pathways"):
+#                 pathways_str = ", ".join(metabolite_data["pathways"][:5])  # Limit to 5 pathways
+#                 context_parts.append(f"Pathways: {pathways_str}")
+            
+#             # Add diseases
+#             if metabolite_data.get("diseases"):
+#                 diseases_str = ", ".join(metabolite_data["diseases"][:5])  # Limit to 5 diseases
+#                 context_parts.append(f"Associated diseases: {diseases_str}")
+            
+#             # Add biological functions
+#             if metabolite_data.get("biological_functions"):
+#                 functions_str = ", ".join(metabolite_data["biological_functions"][:3])  # Limit to 3 functions
+#                 context_parts.append(f"Biological functions: {functions_str}")
+            
+#             # Add tissue locations
+#             if metabolite_data.get("tissue_locations"):
+#                 tissues_str = ", ".join(metabolite_data["tissue_locations"][:5])  # Limit to 5 tissues
+#                 context_parts.append(f"Found in tissues: {tissues_str}")
+            
+#             # Add biofluid locations
+#             if metabolite_data.get("biofluid_locations"):
+#                 biofluids_str = ", ".join(metabolite_data["biofluid_locations"][:5])  # Limit to 5 biofluids
+#                 context_parts.append(f"Found in biofluids: {biofluids_str}")
+            
+#             hmdb_contexts[metabolite_name] = " | ".join(context_parts)
+#         else:
+#             hmdb_contexts[metabolite_name] = (
+#                 f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id})"
+#             )
+#     except Exception as e:
+#         print(f"Error fetching data for {hmdb_id}: {e}")
+#         hmdb_contexts[metabolite_name] = (
+#             f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id})"
+#         )
+
+# Create PriorData object
+priors = PriorData(metabolite_names=sample_data["metabolite_identification"].tolist())
+
+# Generate Bayesian priors for diabetes vs control using Gemini
+condition = """
+Study: Type 2 diabetes mellitus vs healthy control
+Context: Type 2 diabetes mellitus is the result of a combination of impaired insulin secretion with reduced insulin sensitivity of target tissues. There are an estimated 150 million affected individuals worldwide, of whom a large proportion remains undiagnosed because of a lack of specific symptoms early in this disorder and inadequate diagnostics. In this study, NMR-based metabolomic analysis in conjunction with uni- and multivariate statistics was applied to examine the urinary metabolic changes in Human type 2 diabetes mellitus patients compared to the control group. The human population were un medicated diabetic patients who have good daily dietary control over their blood glucose concentrations by following the guidelines on diet issued by the American Diabetes Association.
+Sample type: Urine samples analyzed by NMR spectroscopy
+Patient population: Unmedicated Type 2 diabetes patients with good dietary control vs healthy controls
+Expected changes: Look for metabolites altered in diabetes pathophysiology, particularly those related to glucose metabolism, insulin sensitivity, and urinary excretion patterns.
+"""
+print(f"\nGenerating Bayesian priors for Type 2 diabetes study")
+
+if os.getenv("GOOGLE_API_KEY"):
+    # Generate based differential priors
+    differential_priors = get_llm_differential_priors(
+        priors=priors,
+        condition=condition,
+        use_hmdb_context=False,
+    )
+    print("✅ Successfully generated LLM-based priors!")
+else:
+    raise RuntimeError(
+        "GOOGLE_API_KEY not set. Please set your Google API key as shown in the instructions above to generate LLM-based priors."
+    )
+```
+
+### 4. Hierarchical Bayesian Model for Differential Expression with PyMC
+
+Now, we'll use these LLM-generated priors in a hierarchical Bayesian model to estimate the differential expression of metabolites. This model pools information across all metabolites to make more robust estimates, especially for those with noisy data.
+
+```{python}
+# Prepare data for PyMC model
+metabolite_names = list(differential_priors.keys())
+
+# Extract the abundance data and pivot
+abundance_data = (
+    filtered_data.filter(regex="ADG")
+    .join(filtered_data[["metabolite_identification"]])
+    .groupby("metabolite_identification")
+    .mean()
+    .loc[metabolite_names]
+)
+abundance_data = abundance_data.T  # Transpose so metabolites are columns
+
+# Get the group information (case/control)
+group_labels = (
+    metadata["Factor Value[Metabolic syndrome]"]
+    .apply(lambda x: 1 if "diabetes mellitus" in x else 0)
+    .values
+)
+
+# Get the LLM priors
+llm_priors_mean = np.array(
+    [differential_priors[m]["expected_log2fc"] for m in metabolite_names]
+)
+llm_priors_sd = np.array([differential_priors[m]["prior_sd"] for m in metabolite_names])
+
+print("--- Debugging Shapes ---")
+print(f"Shape of abundance_data: {abundance_data.shape}")
+print(f"Shape of group_labels: {group_labels.shape}")
+print(f"Number of metabolites: {len(metabolite_names)}")
+print(f"Shape of LLM prior means: {llm_priors_mean.shape}")
+print("------------------------")
+
+with pm.Model() as hierarchical_model:
+    # Simple model - use LLM priors directly, let data update them
+
+    # --- Model for log-fold changes (beta) ---
+    # Use LLM priors directly - no additional hierarchy or trust parameters
+    beta = pm.Normal(
+        "beta",
+        mu=llm_priors_mean,  # LLM prior means
+        sigma=llm_priors_sd,  # LLM prior uncertainties
+        shape=len(metabolite_names),
+    )
+
+    # --- Data Likelihood ---
+    # Priors for metabolite-specific intercepts and standard deviations
+    alpha = pm.Normal(
+        "alpha", mu=abundance_data.mean().values, sigma=2.5, shape=len(metabolite_names)
+    )
+    metabolite_sigmas = pm.HalfNormal(
+        "metabolite_sigmas", sigma=1, shape=len(metabolite_names)
+    )
+
+    # Expected value of the data  
+    mu = alpha + beta * group_labels[:, None]
+
+    # Likelihood
+    y_obs = pm.Normal(
+        "y_obs", mu=mu, sigma=metabolite_sigmas, observed=abundance_data.values
+    )
+
+    # --- Fit the model ---
+    idata = pm.sample(2000, tune=2000, target_accept=0.9, cores=4)
+
+
+# Display the results
+pm.summary(idata, var_names=["beta", "alpha", "metabolite_sigmas"])
+```
+
+## Comparison: Bayesian Beta vs Empirical log2FC
+
+Let's compare the Bayesian model's beta estimates (informed by LLM priors) with the empirical log2 fold changes calculated directly from the data.
+
+```{python}
+# Calculate empirical log2 fold changes
+def calculate_empirical_log2fc(abundance_data, group_labels):
+    """Calculate empirical log2 fold changes between groups."""
+    control_indices = group_labels == 0
+    case_indices = group_labels == 1
+    
+    control_means = abundance_data[control_indices].mean()
+    case_means = abundance_data[case_indices].mean()
+    
+    # Calculate log2 fold change (case vs control)
+    log2fc = np.log2(case_means / control_means)
+    return log2fc
+
+empirical_log2fc = calculate_empirical_log2fc(abundance_data, group_labels)
+
+# Get posterior means for beta
+beta_posterior_means = idata.posterior['beta'].mean(dim=['chain', 'draw']).values
+
+# Create comparison DataFrame
+comparison_df = pd.DataFrame({
+    'metabolite': metabolite_names,
+    'empirical_log2fc': empirical_log2fc.values,
+    'bayesian_beta': beta_posterior_means,
+    'llm_prior_mean': llm_priors_mean,
+    'llm_prior_sd': llm_priors_sd
+})
+
+# Add additional columns for analysis
+comparison_df['difference'] = comparison_df['bayesian_beta'] - comparison_df['empirical_log2fc']
+comparison_df['abs_difference'] = np.abs(comparison_df['difference'])
+
+print("Comparison of Bayesian Beta vs Empirical log2FC:")
+print(comparison_df.round(3))
+```
+
+```{python}
+# Create comparison visualizations
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+
+# 1. Scatter plot: Bayesian Beta vs Empirical log2FC
+axes[0, 0].scatter(comparison_df['empirical_log2fc'], comparison_df['bayesian_beta'], alpha=0.7)
+axes[0, 0].plot([-2, 2], [-2, 2], 'r--', alpha=0.5, label='Perfect agreement')
+axes[0, 0].set_xlabel('Empirical log2FC')
+axes[0, 0].set_ylabel('Bayesian Beta')
+axes[0, 0].set_title('Bayesian Beta vs Empirical log2FC')
+axes[0, 0].legend()
+axes[0, 0].grid(True, alpha=0.3)
+
+# 2. LLM Prior vs Empirical log2FC
+axes[0, 1].scatter(comparison_df['empirical_log2fc'], comparison_df['llm_prior_mean'], alpha=0.7, color='orange')
+axes[0, 1].plot([-2, 2], [-2, 2], 'r--', alpha=0.5, label='Perfect agreement')
+axes[0, 1].set_xlabel('Empirical log2FC')
+axes[0, 1].set_ylabel('LLM Prior Mean')
+axes[0, 1].set_title('LLM Prior vs Empirical log2FC')
+axes[0, 1].legend()
+axes[0, 1].grid(True, alpha=0.3)
+
+# 3. Difference between Bayesian and Empirical
+axes[1, 0].bar(range(len(metabolite_names)), comparison_df['difference'], alpha=0.7)
+axes[1, 0].set_xlabel('Metabolite Index')
+axes[1, 0].set_ylabel('Difference (Bayesian - Empirical)')
+axes[1, 0].set_title('Difference: Bayesian Beta - Empirical log2FC')
+axes[1, 0].axhline(y=0, color='r', linestyle='--', alpha=0.5)
+axes[1, 0].grid(True, alpha=0.3)
+
+# 4. Prior uncertainty vs difference
+axes[1, 1].scatter(comparison_df['llm_prior_sd'], comparison_df['abs_difference'], alpha=0.7, color='green')
+axes[1, 1].set_xlabel('LLM Prior Standard Deviation')
+axes[1, 1].set_ylabel('Absolute Difference')
+axes[1, 1].set_title('Prior Uncertainty vs Absolute Difference')
+axes[1, 1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Create a focused plot comparing empirical vs Bayesian estimates
+fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+# Create the scatter plot
+scatter = ax.scatter(comparison_df['empirical_log2fc'], 
+                    comparison_df['bayesian_beta'], 
+                    s=100, alpha=0.7, 
+                    c=comparison_df['llm_prior_sd'], 
+                    cmap='viridis', 
+                    edgecolors='black', linewidth=0.5)
+
+# Add perfect agreement line
+min_val = min(comparison_df['empirical_log2fc'].min(), comparison_df['bayesian_beta'].min())
+max_val = max(comparison_df['empirical_log2fc'].max(), comparison_df['bayesian_beta'].max())
+ax.plot([min_val, max_val], [min_val, max_val], 'r--', alpha=0.8, linewidth=2, label='Perfect agreement')
+
+# Add labels for metabolites with largest differences
+for i, row in comparison_df.iterrows():
+    if row['abs_difference'] > comparison_df['abs_difference'].quantile(0.7):  # Top 30% differences
+        ax.annotate(row['metabolite'], 
+                   (row['empirical_log2fc'], row['bayesian_beta']),
+                   xytext=(5, 5), textcoords='offset points',
+                   fontsize=8, alpha=0.8, 
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.3))
+
+# Formatting
+ax.set_xlabel('Empirical log2FC', fontsize=12)
+ax.set_ylabel('Bayesian Beta (log2FC)', fontsize=12)
+ax.set_title('Empirical vs Bayesian log2FC Estimates\n(Color = LLM Prior Uncertainty)', fontsize=14)
+ax.grid(True, alpha=0.3)
+ax.legend()
+
+# Add colorbar
+cbar = plt.colorbar(scatter, ax=ax)
+cbar.set_label('LLM Prior Standard Deviation', fontsize=10)
+
+# Add correlation coefficient as text
+corr_coef = comparison_df['bayesian_beta'].corr(comparison_df['empirical_log2fc'])
+ax.text(0.05, 0.95, f'r = {corr_coef:.3f}', transform=ax.transAxes, 
+        fontsize=12, bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Analyze sign/direction agreement between LLM priors and empirical data
+def analyze_sign_agreement(df):
+    """Analyze whether LLM priors agree on sign/direction with empirical data."""
+    
+    # Define sign categories
+    df['empirical_sign'] = np.where(df['empirical_log2fc'] > 0, 'increase', 
+                                   np.where(df['empirical_log2fc'] < 0, 'decrease', 'unchanged'))
+    df['llm_prior_sign'] = np.where(df['llm_prior_mean'] > 0, 'increase', 
+                                   np.where(df['llm_prior_mean'] < 0, 'decrease', 'unchanged'))
+    
+    # Check agreement - but don't count it as disagreement if LLM prior is unchanged (0)
+    df['sign_agreement'] = df['empirical_sign'] == df['llm_prior_sign']
+    
+    # True sign disagreement: LLM predicts opposite direction (not just 0/unchanged)
+    df['true_sign_disagreement'] = (
+        ((df['empirical_sign'] == 'increase') & (df['llm_prior_sign'] == 'decrease')) |
+        ((df['empirical_sign'] == 'decrease') & (df['llm_prior_sign'] == 'increase'))
+    )
+    
+    # LLM neutral/uncertain: LLM predicts unchanged but empirical shows change
+    df['llm_neutral_disagreement'] = (
+        (df['llm_prior_sign'] == 'unchanged') & (df['empirical_sign'] != 'unchanged')
+    )
+    
+    # Calculate metrics
+    total_metabolites = len(df)
+    sign_agreement_count = df['sign_agreement'].sum()
+    sign_agreement_pct = (sign_agreement_count / total_metabolites) * 100
+    
+    # Separate different types of disagreements
+    df['magnitude_only_disagreement'] = df['sign_agreement'] & (df['abs_difference'] > 0.1)
+    true_sign_disagreement_count = df['true_sign_disagreement'].sum()
+    llm_neutral_count = df['llm_neutral_disagreement'].sum()
+    
+    magnitude_only_count = df['magnitude_only_disagreement'].sum()
+    
+    return {
+        'total_metabolites': total_metabolites,
+        'sign_agreement_count': sign_agreement_count,
+        'sign_agreement_pct': sign_agreement_pct,
+        'magnitude_only_count': magnitude_only_count,
+        'true_sign_disagreement_count': true_sign_disagreement_count,
+        'llm_neutral_count': llm_neutral_count,
+        'df': df
+    }
+
+# Perform the analysis
+agreement_analysis = analyze_sign_agreement(comparison_df.copy())
+analysis_df = agreement_analysis['df']
+
+print("\n=== SIGN/DIRECTION AGREEMENT ANALYSIS ===")
+print(f"Total metabolites: {agreement_analysis['total_metabolites']}")
+print(f"Sign agreement: {agreement_analysis['sign_agreement_count']}/{agreement_analysis['total_metabolites']} ({agreement_analysis['sign_agreement_pct']:.1f}%)")
+print(f"True sign disagreement (opposite directions): {agreement_analysis['true_sign_disagreement_count']}/{agreement_analysis['total_metabolites']} ({(agreement_analysis['true_sign_disagreement_count']/agreement_analysis['total_metabolites']*100):.1f}%)")
+print(f"LLM neutral/uncertain (LLM=0, empirical≠0): {agreement_analysis['llm_neutral_count']}/{agreement_analysis['total_metabolites']} ({(agreement_analysis['llm_neutral_count']/agreement_analysis['total_metabolites']*100):.1f}%)")
+print(f"Magnitude-only disagreement: {agreement_analysis['magnitude_only_count']}/{agreement_analysis['total_metabolites']} ({(agreement_analysis['magnitude_only_count']/agreement_analysis['total_metabolites']*100):.1f}%)")
+
+print(f"\nMetabolites with TRUE SIGN disagreement (opposite directions):")
+sign_disagreements = analysis_df[analysis_df['true_sign_disagreement']].copy()
+if len(sign_disagreements) > 0:
+    for _, row in sign_disagreements.iterrows():
+        print(f"  {row['metabolite']}: Empirical={row['empirical_log2fc']:.3f} ({row['empirical_sign']}), LLM Prior={row['llm_prior_mean']:.3f} ({row['llm_prior_sign']})")
+else:
+    print("  No true sign disagreements found!")
+
+print(f"\nMetabolites where LLM was NEUTRAL/UNCERTAIN (LLM=0, empirical≠0):")
+llm_neutral = analysis_df[analysis_df['llm_neutral_disagreement']].copy()
+if len(llm_neutral) > 0:
+    for _, row in llm_neutral.iterrows():
+        print(f"  {row['metabolite']}: Empirical={row['empirical_log2fc']:.3f} ({row['empirical_sign']}), LLM Prior={row['llm_prior_mean']:.3f} ({row['llm_prior_sign']})")
+else:
+    print("  No LLM neutral cases found!")
+
+print(f"\nMetabolites with MAGNITUDE-ONLY disagreement (>0.1 difference but same sign):")
+magnitude_disagreements = analysis_df[analysis_df['magnitude_only_disagreement']].copy()
+if len(magnitude_disagreements) > 0:
+    for _, row in magnitude_disagreements.iterrows():
+        print(f"  {row['metabolite']}: Empirical={row['empirical_log2fc']:.3f}, LLM Prior={row['llm_prior_mean']:.3f}, Diff={row['difference']:.3f}")
+else:
+    print("  No significant magnitude-only disagreements found!")
+```
+
+```{python}
+# Summary statistics
+print("\n=== COMPARISON SUMMARY ===")
+print(f"Mean absolute difference: {comparison_df['abs_difference'].mean():.3f}")
+print(
+    f"Correlation (Bayesian vs Empirical): {comparison_df['bayesian_beta'].corr(comparison_df['empirical_log2fc']):.3f}"
+)
+print(
+    f"Correlation (LLM Prior vs Empirical): {comparison_df['llm_prior_mean'].corr(comparison_df['empirical_log2fc']):.3f}"
+)
+
+# Identify metabolites with largest differences
+print(f"\nMetabolites with largest differences (Bayesian vs Empirical):")
+largest_diff = comparison_df.nlargest(3, "abs_difference")
+for _, row in largest_diff.iterrows():
+    print(
+        f"  {row['metabolite']}: Empirical={row['empirical_log2fc']:.3f}, Bayesian={row['bayesian_beta']:.3f}, Diff={row['difference']:.3f}"
+    )
+
+# Check if high-uncertainty priors lead to more empirical-like results
+print(f"\nCorrelation between prior uncertainty and shrinkage:")
+shrinkage = np.abs(comparison_df["llm_prior_mean"] - comparison_df["bayesian_beta"])
+print(
+    f"Prior SD vs Shrinkage correlation: {comparison_df['llm_prior_sd'].corr(shrinkage):.3f}"
+)
+```

@@ -1,0 +1,303 @@
+---
+title: "KEGG Reaction-Based Bayesian Priors"
+description: "Generate biologically-informed Bayesian priors from real KEGG metabolic reaction data"
+execute:
+  warning: false
+  message: false
+jupyter: python3
+---
+
+This tutorial demonstrates how to generate **Bayesian priors for metabolomics** from real KEGG reaction data, creating biologically-informed constraints for your statistical models.
+
+## Key Concepts
+
+### Signed Metabolic Networks
+- **Negative edges (-1)**: Substrate-product relationships (anti-correlated)
+- **Positive edges (+1)**: Same-side metabolites (co-occurring, positively correlated)
+
+### Graph Laplacian for Bayesian Priors
+- **L = D - A** where D is degree matrix, A is adjacency matrix
+- Used as **precision matrix** in Gaussian process priors
+- Encodes prior belief that connected metabolites have correlated changes
+
+---
+
+## Setup
+
+```{python}
+# Setup and imports
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Configure matplotlib
+plt.style.use("default")
+plt.rcParams["figure.figsize"] = (12, 8)
+plt.rcParams["font.size"] = 10
+
+# Import apriomics components
+from apriomics.build_signed_edges import process_reactions
+from apriomics.visualization import MarkovFieldVisualizer
+from apriomics import kegg_utils
+from apriomics.kegg_utils_extended import get_metabolite_reaction_edges, filter_reactions_by_metabolite_overlap
+
+from chembridge import get_metabolite_name
+
+print("✅ Environment configured")
+```
+
+## 1. Define Target Metabolites
+
+We'll start with key metabolites from **glycolysis** and the **TCA cycle**, then find all reactions they participate in.
+
+```{python}
+# Define target metabolites from core metabolic pathways
+target_metabolites = [
+    "C00031",  # D-Glucose
+    "C00092",  # D-Glucose-6-phosphate
+    "C00085",  # D-Fructose-6-phosphate
+    "C00354",  # D-Fructose-1,6-bisphosphate
+    "C00022",  # Pyruvate
+    "C00024",  # Acetyl-CoA
+    "C00158",  # Citrate
+    "C00311",  # Isocitrate
+    "C00026",  # 2-Oxoglutarate (alpha-Ketoglutarate)
+    "C00042",  # Succinate
+    "C00122",  # Fumarate
+    "C00036",  # Oxaloacetate
+    "C00002",  # ATP
+    "C00008",  # ADP
+    "C00020",  # AMP
+]
+
+# Find reactions that connect our target metabolites using existing efficient function
+print("📡 Finding reactions that connect our target metabolites...")
+print("    (This automatically filters to reactions involving multiple targets)")
+
+# Get all reaction IDs that involve multiple target metabolites
+from collections import defaultdict
+
+metabolite_to_reactions = defaultdict(set)
+
+for met_id in target_metabolites:
+    reactions = kegg_utils.get_reactions_for_compound(met_id)
+    metabolite_to_reactions[met_id].update(reactions)
+    print(f"   {met_id}: {len(reactions)} reactions")
+
+# Find reactions involving multiple target metabolites
+reaction_metabolite_count = defaultdict(int)
+for met_id, reactions in metabolite_to_reactions.items():
+    for reaction in reactions:
+        reaction_metabolite_count[reaction] += 1
+
+# Keep only reactions involving 2+ target metabolites
+filtered_reactions = [r for r, count in reaction_metabolite_count.items() if count >= 3]
+
+print(
+    f"✅ Found {len(filtered_reactions)} reactions connecting multiple target metabolites"
+)
+print(
+    f"   Reduction: {sum(len(r) for r in metabolite_to_reactions.values())} → {len(filtered_reactions)} total reactions"
+)
+print("📡 Processing filtered reactions to build signed network...")
+
+# Process reactions to get signed edges
+signed_edges = process_reactions(filtered_reactions)
+print(f"✅ Successfully processed {len(signed_edges)} signed edges")
+
+# Get network statistics
+all_metabolites = list(set([m for edge in signed_edges.keys() for m in edge]))
+positive_edges = sum(1 for v in signed_edges.values() if v > 0)
+negative_edges = sum(1 for v in signed_edges.values() if v < 0)
+
+print(f"📊 Network Statistics:")
+print(f"   Total metabolites: {len(all_metabolites)}")
+print(f"   Total edges: {len(signed_edges)}")
+print(f"   Positive edges (+1): {positive_edges}")
+print(f"   Negative edges (-1): {negative_edges}")
+```
+
+## 2. Map KEGG IDs to Readable Names
+
+KEGG compound IDs (like C00022) are not very readable. Let's use chembridge to automatically map them to common metabolite names.
+
+```{python}
+# Import chembridge for metabolite name lookup
+
+def get_display_name(kegg_id):
+    """Get readable name for KEGG compound ID using chembridge."""
+    name = get_metabolite_name(kegg_id, source='auto', show_progress=False)
+    return name if name else kegg_id
+
+# Filter out common cofactors for cleaner visualization
+exclude_cofactors = {'C00001', 'C00080', 'C00004', 'C00003', 'C00005', 'C00006'}
+main_metabolites = [m for m in all_metabolites if m not in exclude_cofactors]
+
+print(f"🧬 Main metabolites in network (excluding cofactors):")
+for met in sorted(main_metabolites)[:10]:  # Show first 10
+    name = get_display_name(met)
+    print(f"   {met} → {name}")
+
+if len(main_metabolites) > 10:
+    print(f"   ... and {len(main_metabolites) - 10} more")
+
+print(f"\\n📊 Using {len(main_metabolites)} main metabolites for visualization")
+```
+
+## 3. Visualize the Signed Metabolic Network
+
+Let's create a signed adjacency matrix showing reaction relationships.
+
+```{python}
+# Select subset for clear visualization
+viz_metabolites = main_metabolites[:12]  # Top 12 for clarity
+subset_edges = {k: v for k, v in signed_edges.items() 
+               if k[0] in viz_metabolites and k[1] in viz_metabolites}
+
+# Create adjacency matrix
+n = len(viz_metabolites)
+adj_matrix = np.zeros((n, n))
+met_to_idx = {met: i for i, met in enumerate(viz_metabolites)}
+
+for (met1, met2), sign in subset_edges.items():
+    i, j = met_to_idx[met1], met_to_idx[met2]
+    adj_matrix[i, j] = sign
+
+# Create the plot
+fig, ax = plt.subplots(figsize=(12, 10))
+im = ax.imshow(adj_matrix, cmap='RdBu_r', vmin=-1, vmax=1, aspect='auto')
+
+# Use readable names for labels
+display_names = [get_display_name(met) for met in viz_metabolites]
+
+ax.set_xticks(range(n))
+ax.set_yticks(range(n))
+ax.set_xticklabels(display_names, rotation=45, ha='right')
+ax.set_yticklabels(display_names)
+
+# Add colorbar
+cbar = plt.colorbar(im, ax=ax)
+cbar.set_label('KEGG Reaction Relationship', rotation=270, labelpad=20)
+cbar.set_ticks([-1, 0, 1])
+cbar.set_ticklabels(['Substrate→Product (-1)', 'No Relationship (0)', 'Same Reaction Side (+1)'])
+
+ax.set_title('Real KEGG Metabolic Network\\n(Signed Adjacency Matrix)', fontsize=14, fontweight='bold')
+
+# Add grid
+ax.set_xticks(np.arange(-0.5, n, 1), minor=True)
+ax.set_yticks(np.arange(-0.5, n, 1), minor=True)
+ax.grid(which='minor', color='gray', linestyle='-', linewidth=0.5, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+print(f"📈 Visualization shows {len(subset_edges)} relationships between {n} metabolites")
+```
+
+## 4. Generate Graph Laplacian for Bayesian Priors
+
+The **graph Laplacian** (L = D - A) serves as the precision matrix for Bayesian modeling.
+
+```{python}
+# Create Markov field visualizer
+markov_viz = MarkovFieldVisualizer(signed_edges)
+
+# Generate Laplacian heatmap
+fig = markov_viz.plot_laplacian_heatmap(
+    metabolites=viz_metabolites,
+    figsize=(12, 10)
+)
+plt.show()
+
+print("📊 The Laplacian matrix encodes prior correlations:")
+print("   • Diagonal: degree (connectivity) of each metabolite")
+print("   • Off-diagonal: negative adjacency relationships")
+print("   • Use as precision matrix Λ in: p(x) ∝ exp(-½x'Λx)")
+```
+
+## 5. Example Reaction Relationships
+
+Let's examine specific metabolite pairs and their relationships from KEGG reactions.
+
+```{python}
+# Show example relationships
+print("🔗 Example KEGG reaction relationships:")
+print("=" * 50)
+
+relationship_count = 0
+for (met1, met2), sign in list(subset_edges.items())[:8]:  # Show first 8
+    name1, name2 = get_display_name(met1), get_display_name(met2)
+    
+    if sign == -1:
+        rel_type = "substrate→product"
+        interpretation = "anti-correlated (when one increases, other decreases)"
+    else:
+        rel_type = "same reaction side"
+        interpretation = "co-occurring (tend to change together)"
+    
+    print(f"{relationship_count + 1:2d}. {name1} ↔ {name2}")
+    print(f"    Relationship: {rel_type} ({sign:+d})")
+    print(f"    Bayesian prior: {interpretation}")
+    print()
+    
+    relationship_count += 1
+
+if len(subset_edges) > 8:
+    print(f"... and {len(subset_edges) - 8} more relationships")
+```
+
+## 6. Using These Priors in Bayesian Models
+
+Here's how to integrate these KEGG-derived priors into your Bayesian analysis.
+
+```{python}
+# Build the actual Laplacian matrix for use in modeling
+from apriomics.priors.graph_priors import build_laplacian_matrix
+
+# Build edges for our metabolite subset
+subset_edge_list = [(m1, m2) for (m1, m2) in subset_edges.keys()]
+
+# Build Laplacian matrix
+laplacian = build_laplacian_matrix(viz_metabolites, subset_edge_list)
+
+print("🎯 Using KEGG Priors in Bayesian Models")
+print("=" * 50)
+print(f"Laplacian matrix shape: {laplacian.shape}")
+print(f"Matrix rank: {np.linalg.matrix_rank(laplacian)}")
+print(f"Condition number: {np.linalg.cond(laplacian + 1e-6 * np.eye(laplacian.shape[0])):.2e}")
+print()
+print("📝 Example usage in your Bayesian model:")
+print()
+print("```python")
+print("# In your Gaussian Process or Bayesian regression:")
+print("precision_matrix = laplacian + alpha * np.eye(n_metabolites)")
+print("prior_covariance = np.linalg.inv(precision_matrix)")
+print("")
+print("# This encodes the belief that:")
+print("# - Substrate-product pairs are anti-correlated")
+print("# - Same-side metabolites are positively correlated")
+print("# - Highly connected metabolites have stronger constraints")
+print("```")
+print()
+print("🎉 Your Bayesian model now incorporates known metabolic network structure!")
+```
+
+## Summary
+
+This tutorial demonstrated how to:
+
+1. ✅ **Fetch real KEGG reaction data** from core metabolic pathways
+2. ✅ **Build signed metabolic networks** with substrate-product relationships
+3. ✅ **Generate graph Laplacian matrices** for Bayesian priors
+4. ✅ **Visualize network structure** with interpretable heatmaps
+5. ✅ **Integrate priors into Bayesian models** for informed metabolomics analysis
+
+### Key Takeaway
+
+Instead of assuming metabolite independence, we now have **biologically-informed priors** based on known enzymatic reactions from KEGG. This leads to more realistic and interpretable Bayesian models for metabolomics data.
+
+### Next Steps
+
+- Try this with your own metabolite list and specific KEGG pathways relevant to your study
+- Experiment with different pathway combinations (e.g., lipid metabolism, amino acid pathways)
+- Combine with chemical similarity priors for even richer Bayesian models
+- Use the resulting precision matrices in Gaussian processes or Bayesian regression

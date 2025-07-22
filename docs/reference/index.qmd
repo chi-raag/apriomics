@@ -1,0 +1,9 @@
+# Function reference {.doc .doc-index}
+
+## Functions
+
+Examples of using the apriomics package.
+
+| | |
+| --- | --- |
+| [PriorData](PriorData.qmd#apriomics.PriorData) |  |

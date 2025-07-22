@@ -33,6 +33,20 @@ try:
 except ImportError:
     RAG_AVAILABLE = False
 
+# Visualization components (optional imports)
+try:
+    from .visualization import (
+        MarkovFieldVisualizer,
+        LLMPriorVisualizer,
+        plot_signed_network,
+        plot_bayesian_scores,
+        analyze_priors,
+        create_comprehensive_report
+    )
+    VIZ_AVAILABLE = True
+except ImportError:
+    VIZ_AVAILABLE = False
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -51,9 +65,21 @@ __all__ = [
     'pipe',
     'clean_pathway_list_with_llm',
     'DSPyPathwayCleaner',
-    'RAG_AVAILABLE'
+    'RAG_AVAILABLE',
+    'VIZ_AVAILABLE'
 ]
 
 # Add RAG components to __all__ if available
 if RAG_AVAILABLE:
     __all__.extend(['HMDBParser', 'HMDBVectorBuilder', 'HMDBRetriever', 'SimpleHMDBScraper'])
+
+# Add visualization components to __all__ if available
+if VIZ_AVAILABLE:
+    __all__.extend([
+        'MarkovFieldVisualizer',
+        'LLMPriorVisualizer',
+        'plot_signed_network',
+        'plot_bayesian_scores',
+        'analyze_priors',
+        'create_comprehensive_report'
+    ])

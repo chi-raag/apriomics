@@ -191,5 +191,12 @@
     "title": "LLM-Enhanced Metabolite Priors",
     "section": "Summary",
     "text": "Summary\nThis method provides a systematic approach to incorporating biological knowledge into Bayesian metabolomics analysis. By combining language model reasoning with comprehensive metabolite databases, it enables the generation of informed priors that can improve the sensitivity and interpretability of differential analysis while maintaining appropriate uncertainty quantification."
+  },
+  {
+    "objectID": "examples/mtsbl1-analysis.html",
+    "href": "examples/mtsbl1-analysis.html",
+    "title": "MTSB1 Analysis",
+    "section": "",
+    "text": "import pandas as pd\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport seaborn as sns\n\nfrom chembridge.databases.hmdb import HMDBClient\nfrom chembridge import map_chebi_to_hmdb, map_hmdb_to_chebi, map_metabolites"
   }
 ]

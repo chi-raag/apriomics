@@ -123,9 +123,9 @@ def get_reactions_for_compound(compound_id: str) -> list[str]:
 
         lines = text.splitlines()
         for line in lines:
-            if '\\t' not in line:
+            if '\t' not in line:
                 continue
-            c_id_full, r_id_full = line.split('\\t', 1)
+            c_id_full, r_id_full = line.split('\t', 1)
             # Extract Rxxxxx from rn:Rxxxxx
             if ':' in r_id_full:
                 r_id = r_id_full.split(':')[1]
