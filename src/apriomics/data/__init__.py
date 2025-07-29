@@ -15,10 +15,10 @@ HMDB_INDEX_DIR = DATA_DIR / "hmdb_index"
 def get_default_hmdb_index() -> Path:
     """
     Get path to bundled HMDB index.
-    
+
     Returns:
         Path to the default HMDB vector index directory
-        
+
     Raises:
         FileNotFoundError: If the index is not found
     """
@@ -34,7 +34,7 @@ def get_default_hmdb_index() -> Path:
 def get_default_retriever():
     """
     Get HMDB retriever with bundled index.
-    
+
     Returns:
         HMDBRetriever instance using the default bundled index
     """
@@ -44,7 +44,7 @@ def get_default_retriever():
         print(f"RAG components not available: {e}", file=sys.stderr)
         print("Install with: uv add sentence-transformers faiss-cpu", file=sys.stderr)
         raise
-    
+
     index_path = get_default_hmdb_index()
     return HMDBRetriever(index_path)
 
@@ -57,13 +57,13 @@ def is_index_available() -> bool:
 def get_index_info() -> dict:
     """
     Get information about the bundled index.
-    
+
     Returns:
         Dictionary with index statistics and metadata
     """
     if not is_index_available():
         return {"available": False, "error": "Index not found"}
-    
+
     try:
         retriever = get_default_retriever()
         stats = retriever.get_stats()
@@ -75,10 +75,10 @@ def get_index_info() -> dict:
 
 
 __all__ = [
-    'DATA_DIR',
-    'HMDB_INDEX_DIR', 
-    'get_default_hmdb_index',
-    'get_default_retriever',
-    'is_index_available',
-    'get_index_info'
+    "DATA_DIR",
+    "HMDB_INDEX_DIR",
+    "get_default_hmdb_index",
+    "get_default_retriever",
+    "is_index_available",
+    "get_index_info",
 ]

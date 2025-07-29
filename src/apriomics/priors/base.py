@@ -337,16 +337,17 @@ def get_metabolite_context_for_llm(priors: PriorData, condition: str = "") -> st
     return "\n".join(context_parts)
 
 
-def get_llm_differential_priors(
+def get_llm_qualitative_predictions(
     priors: PriorData,
     condition: str,
     llm_scorer=None,
     hmdb_retriever=None,
     use_hmdb_context: bool = True,
-    prior_strength: str = "conservative",
-) -> Dict[str, float]:
+    model_name: str = "gemini-2.5-flash-lite-preview-06-17",
+    temperature: float = 0.0,
+) -> Dict[str, Dict]:
     """
-    Generate LLM-informed priors for differential expression analysis.
+    Generate qualitative LLM predictions for differential expression analysis.
 
     Parameters:
     -----------
@@ -356,22 +357,21 @@ def get_llm_differential_priors(
         Study condition or experimental design (e.g., "diabetes vs control")
     llm_scorer : object, optional
         LLM scorer object. If None, creates DSPyGeminiScorer.
-    batch_size : int
-        Number of metabolites to process in each LLM batch
     hmdb_retriever : HMDBRetriever, optional
         RAG-based HMDB retriever for enhanced context. If provided, replaces hmdb_contexts.
+    use_hmdb_context : bool
+        Whether to use HMDB context information
+    model_name : str
+        LLM model to use
 
     Returns:
     --------
     dict
-        Dictionary mapping metabolite names to comprehensive prior information:
-        - 'relevance': float (0-1) - importance score for the condition
-        - 'direction': str - expected regulation direction ('increase', 'decrease', 'minimal', 'unclear')
-        - 'rationale': str - explanation for the assessment
-        - 'expected_log2fc': float - expected log2-fold-change for Bayesian priors
-        - 'prior_sd': float - standard deviation for the log2fc prior
-        - 'magnitude': str - effect size category ('minimal', 'small', 'moderate', 'large')
-        - 'confidence': str - assessment confidence ('high', 'moderate', 'low')
+        Dictionary mapping metabolite names to qualitative predictions:
+        - 'prediction': str - expected regulation direction ('increase', 'decrease', 'unchanged')
+        - 'magnitude': str - effect size category ('small', 'moderate', 'large')
+        - 'confidence': float (0-1) - assessment confidence
+        - 'reasoning': str - explanation for the assessment
     """
     import sys
 
@@ -411,18 +411,353 @@ def get_llm_differential_priors(
         batch_contexts = {name: name for name in metabolites}
 
     if llm_scorer is None:
-        if os.getenv("GOOGLE_API_KEY"):
+        # Check if it's an OpenAI model
+        if model_name.startswith(("gpt-", "o1-", "o3-", "o4-")):
+            if os.getenv("OPENAI_API_KEY"):
+                try:
+                    import openai
+                    import json
+                    import re
+
+                    # Configure OpenAI client
+                    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+                    # Check if it's a deep research model
+                    is_deep_research = "deep-research" in model_name
+
+                    class DirectOpenAIDeepResearchScorer:
+                        def __init__(self, client, model_name):
+                            self.client = client
+                            self.model_name = model_name
+
+                        def analyze_metabolite(
+                            self, condition: str, metabolite: str, context: str
+                        ):
+                            """Analyze a single metabolite using OpenAI Deep Research models."""
+                            
+                            system_message = """
+You are an expert metabolomics researcher with deep knowledge of biochemical pathways, disease mechanisms, and metabolic regulation. Your expertise spans diabetes metabolism, renal physiology, and urinary biomarkers.
+
+Conduct thorough research to predict how the given metabolite's urinary concentration will change in the study condition. Use web search to find the latest literature and evidence to support your analysis.
+"""
+
+                            user_query = f"""
+<study_context>
+{condition}
+</study_context>
+
+<metabolite>
+{metabolite}
+</metabolite>
+
+Research and predict how this metabolite's urinary concentration will change in the study condition.
+
+<magnitude_calibration>
+For metabolomics studies, effect sizes typically range:
+- **Large**: >50% change (log2FC > 0.7) - major pathway disruption, central metabolites
+- **Moderate**: 20-50% change (log2FC 0.3-0.7) - significant but not dramatic pathway effects  
+- **Small**: 5-20% change (log2FC 0.1-0.3) - subtle regulatory changes, downstream effects
+</magnitude_calibration>
+
+<confidence_calibration>
+Rate your certainty about the **direction** of change:
+- **0.9-1.0**: Well-established in diabetes literature, clear single mechanism
+- **0.7-0.9**: Strong biological rationale, some supporting evidence
+- **0.5-0.7**: Plausible mechanism, but limited evidence or competing pathways
+- **0.3-0.5**: Weak evidence, highly speculative, or strong conflicting mechanisms
+- **0.1-0.3**: No clear mechanism, pure speculation
+</confidence_calibration>
+
+Provide comprehensive research and analysis, then conclude with JSON:
+{{
+    "prediction": "<increase|decrease|unchanged>",
+    "magnitude": "<small|moderate|large>",
+    "confidence": <0.1-1.0>,
+    "reasoning": "<Concise summary of your biological rationale and key evidence>"
+}}
+"""
+
+                            try:
+                                response = self.client.responses.create(
+                                    model=self.model_name,
+                                    input=[
+                                        {
+                                            "role": "developer",
+                                            "content": [
+                                                {
+                                                    "type": "input_text",
+                                                    "text": system_message
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "role": "user", 
+                                            "content": [
+                                                {
+                                                    "type": "input_text",
+                                                    "text": user_query
+                                                }
+                                            ]
+                                        }
+                                    ],
+                                    reasoning={
+                                        "summary": "auto"
+                                    },
+                                    tools=[
+                                        {"type": "web_search_preview"}
+                                    ]
+                                )
+                                
+                                # Extract the final message content from responses API
+                                # Find the message item in the output (skip reasoning items)
+                                message_item = None
+                                for item in response.output:
+                                    if hasattr(item, 'type') and item.type == 'message':
+                                        message_item = item
+                                        break
+                                
+                                if message_item and hasattr(message_item, 'content') and len(message_item.content) > 0:
+                                    response_text = message_item.content[0].text
+                                else:
+                                    # Fallback - try first item if it has content
+                                    if len(response.output) > 0 and hasattr(response.output[0], 'content'):
+                                        response_text = response.output[0].content[0].text
+                                    else:
+                                        response_text = "No message content found in response"
+
+                                # Clean up the response to extract JSON
+                                json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+                                if json_match:
+                                    json_str = json_match.group(0)
+                                else:
+                                    json_str = response_text.strip()
+
+                                # Remove markdown code blocks if present
+                                json_str = re.sub(r"```json\s*", "", json_str)
+                                json_str = re.sub(r"```\s*$", "", json_str)
+
+                                # Parse JSON response
+                                response_data = json.loads(json_str)
+
+                                # Extract values with defaults
+                                prediction = response_data.get(
+                                    "prediction", "unchanged"
+                                ).lower()
+                                magnitude = response_data.get("magnitude", "small").lower()
+                                confidence = float(response_data.get("confidence", 0.5))
+                                reasoning = response_data.get(
+                                    "reasoning", "No reasoning provided"
+                                )
+
+                                # Return only qualitative predictions
+                                return {
+                                    "prediction": prediction,
+                                    "magnitude": magnitude,
+                                    "confidence": confidence,
+                                    "reasoning": reasoning,
+                                }
+
+                            except Exception as e:
+                                print(f"Error scoring {metabolite}: {e}", file=sys.stderr)
+                                # Default result for failed analysis
+                                return {
+                                    "prediction": "unchanged",
+                                    "magnitude": "small",
+                                    "confidence": 0.0,
+                                    "reasoning": f"Error in LLM processing: {str(e)[:100]}",
+                                }
+
+                    class DirectOpenAIScorer:
+                        def __init__(self, client, model_name, temperature):
+                            self.client = client
+                            self.model_name = model_name
+                            self.temperature = temperature
+
+                        def analyze_metabolite(
+                            self, condition: str, metabolite: str, context: str
+                        ):
+                            """Analyze a single metabolite using OpenAI models."""
+                            
+                            prompt = f"""
+<role>
+You are an expert metabolomics researcher with deep knowledge of biochemical pathways, disease mechanisms, and metabolic regulation. Your expertise spans diabetes metabolism, renal physiology, and urinary biomarkers.
+</role>
+
+<task>
+Predict how the given metabolite's urinary concentration will change in the study condition. Focus on biological mechanisms rather than statistical associations.
+</task>
+
+<study_context>
+{condition}
+</study_context>
+
+<metabolite_information>
+{context}
+</metabolite_information>
+
+<magnitude_calibration>
+For metabolomics studies, effect sizes typically range:
+- **Large**: >50% change (log2FC > 0.7) - major pathway disruption, central metabolites
+- **Moderate**: 20-50% change (log2FC 0.3-0.7) - significant but not dramatic pathway effects  
+- **Small**: 5-20% change (log2FC 0.1-0.3) - subtle regulatory changes, downstream effects
+
+Examples from diabetes literature:
+- Large: Glucose, HbA1c, ketone bodies (central energy metabolism)
+- Moderate: BCAA metabolites, inflammatory markers (secondary pathways)
+- Small: Minor amino acid derivatives, trace pathway outputs
+</magnitude_calibration>
+
+<direction_examples>
+In diabetes, metabolites commonly:
+**Increase**: Glucose spillover products, BCAA catabolites, oxidative stress markers, inflammatory compounds
+**Decrease**: Antioxidants (glutathione), some vitamins, efficiently cleared waste products, beneficial gut metabolites
+**Consider both directions** - diabetes involves depletion as well as accumulation.
+</direction_examples>
+
+<analysis_framework>
+Think step by step:
+
+1. **Pathway Context**: What biochemical pathways produce/consume this metabolite?
+2. **Disease Mechanism**: How does diabetes specifically affect these pathways?
+3. **Directional Logic**: Would diabetes increase production, decrease clearance, enhance consumption, or alter regulation?
+4. **Magnitude Reasoning**: Is this metabolite central to diabetes pathophysiology or peripheral? How dramatic would the change be?
+5. **Evidence Assessment**: How strong is the biological rationale? Are there conflicting mechanisms?
+</analysis_framework>
+
+<confidence_calibration>
+Rate your certainty about the **direction** of change:
+- **0.9-1.0**: Well-established in diabetes literature, clear single mechanism
+- **0.7-0.9**: Strong biological rationale, some supporting evidence
+- **0.5-0.7**: Plausible mechanism, but limited evidence or competing pathways
+- **0.3-0.5**: Weak evidence, highly speculative, or strong conflicting mechanisms
+- **0.1-0.3**: No clear mechanism, pure speculation
+</confidence_calibration>
+
+<examples>
+<example_1>
+Metabolite: 3-hydroxybutyrate
+Reasoning: Central ketone body produced during fatty acid oxidation. Diabetes enhances lipolysis and ketogenesis due to insulin deficiency/resistance. Well-documented diabetes biomarker.
+Prediction: increase, magnitude: large, confidence: 0.95
+</example_1>
+
+<example_2>
+Metabolite: Glutathione
+Reasoning: Major antioxidant that becomes depleted under oxidative stress. Diabetes increases reactive oxygen species while potentially reducing glutathione synthesis. Supported by literature.
+Prediction: decrease, magnitude: moderate, confidence: 0.8
+</example_2>
+
+<example_3>
+Metabolite: Minor tryptophan metabolite
+Reasoning: Downstream product of tryptophan metabolism. Diabetes may slightly alter gut microbiome affecting tryptophan processing, but mechanism unclear and effect likely subtle.
+Prediction: increase, magnitude: small, confidence: 0.4
+</example_3>
+</examples>
+
+<output_format>
+First provide your step-by-step analysis, then conclude with JSON:
+{{
+    "prediction": "<increase|decrease|unchanged>",
+    "magnitude": "<small|moderate|large>",
+    "confidence": <0.1-1.0>,
+    "reasoning": "<Concise summary of your biological rationale and key evidence>"
+}}
+</output_format>
+
+<critical_reminders>
+- Predict BOTH increases AND decreases - diabetes involves depletion as well as accumulation
+- Use the full confidence range (0.1-1.0) - be appropriately uncertain for unclear cases
+- Use "large" magnitude for central diabetes-related metabolites (aim for 10-20% of predictions)
+- Consider mechanism strength, not just direction plausibility
+</critical_reminders>
+"""
+
+                            try:
+                                # Handle different parameter names for different models
+                                if self.model_name.startswith(("o1-", "o3-")):
+                                    # o1 models use max_completion_tokens
+                                    response = self.client.chat.completions.create(
+                                        model=self.model_name,
+                                        messages=[{"role": "user", "content": prompt}],
+                                        max_completion_tokens=1000,
+                                    )
+                                else:
+                                    # Standard models use max_tokens
+                                    response = self.client.chat.completions.create(
+                                        model=self.model_name,
+                                        messages=[{"role": "user", "content": prompt}],
+                                        temperature=self.temperature,
+                                        max_tokens=1000,
+                                    )
+                                
+                                response_text = response.choices[0].message.content.strip()
+
+                                # Clean up the response to extract JSON
+                                json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+                                if json_match:
+                                    json_str = json_match.group(0)
+                                else:
+                                    json_str = response_text.strip()
+
+                                # Remove markdown code blocks if present
+                                json_str = re.sub(r"```json\s*", "", json_str)
+                                json_str = re.sub(r"```\s*$", "", json_str)
+
+                                # Parse JSON response
+                                response_data = json.loads(json_str)
+
+                                # Extract values with defaults
+                                prediction = response_data.get(
+                                    "prediction", "unchanged"
+                                ).lower()
+                                magnitude = response_data.get("magnitude", "small").lower()
+                                confidence = float(response_data.get("confidence", 0.5))
+                                reasoning = response_data.get(
+                                    "reasoning", "No reasoning provided"
+                                )
+
+                                # Return only qualitative predictions
+                                return {
+                                    "prediction": prediction,
+                                    "magnitude": magnitude,
+                                    "confidence": confidence,
+                                    "reasoning": reasoning,
+                                }
+
+                            except Exception as e:
+                                print(f"Error scoring {metabolite}: {e}", file=sys.stderr)
+                                # Default result for failed analysis
+                                return {
+                                    "prediction": "unchanged",
+                                    "magnitude": "small",
+                                    "confidence": 0.0,
+                                    "reasoning": f"Error in LLM processing: {str(e)[:100]}",
+                                }
+
+                    # Use appropriate scorer based on model type
+                    if is_deep_research:
+                        llm_scorer = DirectOpenAIDeepResearchScorer(client, model_name)
+                    else:
+                        llm_scorer = DirectOpenAIScorer(client, model_name, temperature)
+                    
+                except Exception as e:
+                    raise RuntimeError(
+                        f"Could not create OpenAI scorer: {e}. Ensure OPENAI_API_KEY is set and openai is installed."
+                    ) from e
+            else:
+                raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI models.")
+        
+        elif os.getenv("GOOGLE_API_KEY"):
             try:
                 import google.generativeai as genai
                 import json
                 import re
 
-                # Configure Gemini directly with deterministic settings
+                # Configure Gemini with specified temperature
                 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
                 model = genai.GenerativeModel(
-                    "gemini-2.5-flash-lite-preview-06-17",  # Use non-thinking model for reliable JSON parsing
+                    model_name,  # Use specified model
                     generation_config=genai.types.GenerationConfig(
-                        temperature=0.0,  # Deterministic results like the paper
+                        temperature=temperature,  # Use specified temperature
                         top_p=1.0,
                         top_k=1,
                     ),
@@ -438,27 +773,122 @@ def get_llm_differential_priors(
                         """Analyze a single metabolite for focused, scientifically rigorous analysis."""
 
                         prompt = f"""
-You are a metabolomics expert analyzing how metabolites change in disease conditions. Your task is to provide a scientifically rigorous assessment based on the provided information.
+<role>
+You are an expert metabolomics researcher with deep knowledge of biochemical pathways, disease mechanisms, and metabolic regulation. Your expertise spans diabetes metabolism, renal physiology, and urinary biomarkers.
+</role>
 
-**Study Context:**
+<task>
+Predict how the given metabolite's urinary concentration will change in the study condition. Focus on biological mechanisms rather than statistical associations.
+
+IMPORTANT: Most metabolites in any study remain unchanged. Only predict changes when there is compelling biological evidence.
+</task>
+
+<study_context>
 {condition}
+</study_context>
 
-**Metabolite Information:**
+<metabolite_information>
 {context}
+</metabolite_information>
 
-**Analysis Task:**
-1.  **Summarize Study:** Briefly summarize the key aspects of the study, including the condition, sample type, and patient characteristics.
-2.  **Identify Relevant Biology:** Based on the metabolite's background, identify the most relevant pathways, diseases, or functions related to the study context.
-3.  **Formulate Hypothesis:** Synthesize the information from steps 1 and 2 to form a hypothesis about the metabolite's expected change (increase, decrease, or unchanged) and the likely magnitude of this change (small, moderate, or large). Explain your reasoning.
+<base_rate_reality>
+In typical metabolomics studies:
+- **60-80% of metabolites show NO significant change** (unchanged)
+- **15-25% show increases** (mostly small-moderate)
+- **10-20% show decreases** (mostly small-moderate)
+- **<5% show large changes** (only central pathway metabolites)
 
-**Prediction:**
-Based on your analysis, provide your final prediction in the following JSON format:
+The vast majority of metabolites are NOT directly involved in diabetes pathophysiology and should remain unchanged.
+</base_rate_reality>
+
+<magnitude_calibration>
+For metabolomics studies, effect sizes typically range:
+- **Large**: >50% change (log2FC > 0.7) - major pathway disruption, central metabolites ONLY
+- **Moderate**: 20-50% change (log2FC 0.3-0.7) - significant but not dramatic pathway effects  
+- **Small**: 5-20% change (log2FC 0.1-0.3) - subtle regulatory changes, downstream effects
+
+Examples from diabetes literature:
+- Large: Glucose, HbA1c, ketone bodies (central energy metabolism)
+- Moderate: BCAA metabolites, inflammatory markers (secondary pathways)
+- Small: Minor amino acid derivatives, trace pathway outputs
+- Unchanged: Most amino acids, many TCA cycle intermediates, structural metabolites
+</magnitude_calibration>
+
+<direction_examples>
+In diabetes, metabolites commonly:
+**Increase**: Glucose spillover products, BCAA catabolites, oxidative stress markers, inflammatory compounds
+**Decrease**: Antioxidants (glutathione), some vitamins, efficiently cleared waste products, beneficial gut metabolites
+**Unchanged**: Most metabolites not in central diabetes pathways, structural compounds, many enzyme cofactors
+
+Remember: The absence of a clear mechanism suggests UNCHANGED, not a forced increase/decrease.
+</direction_examples>
+
+<analysis_framework>
+Think step by step:
+
+1. **Pathway Context**: What biochemical pathways produce/consume this metabolite?
+2. **Diabetes Relevance**: Is this metabolite directly involved in diabetes pathophysiology?
+3. **Mechanism Assessment**: Is there compelling evidence for diabetes affecting this specific metabolite?
+4. **Default Assumption**: If no clear mechanism exists, default to "unchanged"
+5. **Evidence Strength**: How strong is the biological rationale? Weak evidence = unchanged
+
+KEY: Only predict changes when you have strong mechanistic evidence. When in doubt, predict unchanged.
+</analysis_framework>
+
+<confidence_calibration>
+Rate your certainty about the **direction** of change:
+- **0.9-1.0**: Well-established in diabetes literature, clear single mechanism
+- **0.7-0.9**: Strong biological rationale, some supporting evidence
+- **0.5-0.7**: Plausible mechanism, but limited evidence or competing pathways
+- **0.3-0.5**: Weak evidence, highly speculative, or strong conflicting mechanisms
+- **0.1-0.3**: No clear mechanism, should probably be "unchanged"
+</confidence_calibration>
+
+<examples>
+<example_1>
+Metabolite: 3-hydroxybutyrate
+Reasoning: Central ketone body produced during fatty acid oxidation. Diabetes enhances lipolysis and ketogenesis due to insulin deficiency/resistance. Well-documented diabetes biomarker.
+Prediction: increase, magnitude: large, confidence: 0.95
+</example_1>
+
+<example_2>
+Metabolite: Glutathione
+Reasoning: Major antioxidant that becomes depleted under oxidative stress. Diabetes increases reactive oxygen species while potentially reducing glutathione synthesis. Supported by literature.
+Prediction: decrease, magnitude: moderate, confidence: 0.8
+</example_2>
+
+<example_3>
+Metabolite: Histidine
+Reasoning: Essential amino acid primarily obtained from diet. Diabetes does not directly affect histidine metabolism or excretion. No compelling mechanism for change.
+Prediction: unchanged, magnitude: small, confidence: 0.7
+</example_3>
+
+<example_4>
+Metabolite: Obscure plant secondary metabolite
+Reasoning: This metabolite is not involved in human metabolism and shows no connection to diabetes pathophysiology. No biological mechanism for change.
+Prediction: unchanged, magnitude: small, confidence: 0.9
+</example_4>
+</examples>
+
+<output_format>
+First provide your step-by-step analysis, then conclude with JSON:
 {{
     "prediction": "<increase|decrease|unchanged>",
-    "magnitude": "<small|moderate|large>",
-    "confidence": <float between 0.0 and 1.0>,
-    "reasoning": "<A brief summary of your hypothesis.>"
+    "magnitude": "<small|moderate|large>",  
+    "confidence": <0.1-1.0>,
+    "reasoning": "<Concise summary of your biological rationale and key evidence>"
 }}
+</output_format>
+
+<critical_reminders>
+- MOST METABOLITES REMAIN UNCHANGED - this is the default, not the exception
+- Only predict increases/decreases with compelling mechanistic evidence
+- Use "unchanged" liberally - it's scientifically accurate for most metabolites
+- Predict BOTH increases AND decreases when changes occur
+- Use the full confidence range (0.1-1.0) - be appropriately uncertain
+- Use "large" magnitude sparingly (aim for <5% of predictions)
+- When evidence is weak or absent, choose "unchanged" not a forced direction
+</critical_reminders>
 """
 
                         try:
@@ -489,93 +919,22 @@ Based on your analysis, provide your final prediction in the following JSON form
                                 "reasoning", "No reasoning provided"
                             )
 
-                            # --- Conservative Prior Generation ---
-                            def conservative_directional_prior(prediction, confidence):
-                                """Original conservative prior generation."""
-                                if prediction == "increase":
-                                    prior_mean = 0.15 * confidence
-                                elif prediction == "decrease":
-                                    prior_mean = -0.15 * confidence
-                                else:
-                                    prior_mean = 0.0
-                                prior_sd = 1.0 - (0.6 * confidence)
-                                return prior_mean, prior_sd
-
-                            # --- Moderate Prior Generation ---
-                            def moderate_directional_prior(prediction, magnitude, confidence):
-                                """New, less conservative prior generation."""
-                                # Map magnitude to effect size
-                                if prediction == "unchanged":
-                                    prior_mean = 0.0
-                                else:
-                                    sign = 1 if prediction == "increase" else -1
-                                    if magnitude == "small":
-                                        prior_mean = sign * 0.2
-                                    elif magnitude == "moderate":
-                                        prior_mean = sign * 0.5
-                                    elif magnitude == "large":
-                                        prior_mean = sign * 1.0
-                                    else: # default to small
-                                        prior_mean = sign * 0.2
-
-                                # Map confidence to uncertainty
-                                if confidence < 0.4:
-                                    prior_sd = 2.0  # Low confidence
-                                elif confidence < 0.75:
-                                    prior_sd = 1.0  # Moderate confidence
-                                else:
-                                    prior_sd = 0.5  # High confidence
-                                
-                                return prior_mean, prior_sd
-
-                            # --- Hierarchical Prior Generation ---
-                            def hierarchical_prior(prediction, magnitude):
-                                """Generates group assignments for hierarchical model."""
-                                if prediction == "unchanged":
-                                    return "unchanged"
-                                return f"{magnitude}_{prediction}"
-
-                            # Choose prior generation based on strength
-                            if prior_strength == "conservative":
-                                expected_log2fc, prior_sd = conservative_directional_prior(
-                                    prediction, confidence
-                                )
-                                group = None
-                            elif prior_strength == "moderate":
-                                expected_log2fc, prior_sd = moderate_directional_prior(
-                                    prediction, magnitude, confidence
-                                )
-                                group = None
-                            elif prior_strength == "hierarchical":
-                                group = hierarchical_prior(prediction, magnitude)
-                                expected_log2fc, prior_sd = None, None # Not used in this mode
-                            else:
-                                raise ValueError(f"Unknown prior_strength: {prior_strength}")
-
-
-                            # Create result object
+                            # Return only qualitative predictions
                             return {
-                                "metabolite": metabolite,
                                 "prediction": prediction,
                                 "magnitude": magnitude,
                                 "confidence": confidence,
                                 "reasoning": reasoning,
-                                "expected_log2fc": expected_log2fc,
-                                "prior_sd": prior_sd,
-                                "group": group,
                             }
 
                         except Exception as e:
                             print(f"Error scoring {metabolite}: {e}", file=sys.stderr)
                             # Default result for failed analysis
                             return {
-                                "metabolite": metabolite,
                                 "prediction": "unchanged",
+                                "magnitude": "small",
                                 "confidence": 0.0,
                                 "reasoning": f"Error in LLM processing: {str(e)[:100]}",
-                                "expected_log2fc": 0.0,
-                                "prior_sd": 1.5,
-                                "group": "unchanged",
                             }
 
                 llm_scorer = DirectGeminiScorer(model)
@@ -587,7 +946,7 @@ Based on your analysis, provide your final prediction in the following JSON form
             raise ValueError("GOOGLE_API_KEY environment variable is required.")
 
     # Process metabolites individually (paid tier - no rate limiting needed)
-    differential_priors = {}
+    qualitative_predictions = {}
 
     print(f"Processing {len(metabolites)} metabolites individually", file=sys.stderr)
 
@@ -599,15 +958,11 @@ Based on your analysis, provide your final prediction in the following JSON form
 
         if metabolite not in batch_contexts:
             print(f"Warning: No context available for {metabolite}", file=sys.stderr)
-            differential_priors[metabolite] = {
-                "relevance": 0.5,
-                "direction": "unclear",
-                "rationale": "No context available",
-                "expected_log2fc": 0.0,
-                "prior_sd": 0.8,
-                "magnitude": "moderate",
-                "confidence": "low",
-                "group": "unchanged",
+            qualitative_predictions[metabolite] = {
+                "prediction": "unchanged",
+                "magnitude": "small",
+                "confidence": 0.0,
+                "reasoning": "No context available",
             }
             continue
 
@@ -617,22 +972,200 @@ Based on your analysis, provide your final prediction in the following JSON form
                 condition, metabolite, batch_contexts[metabolite]
             )
 
-            differential_priors[metabolite] = result
+            qualitative_predictions[metabolite] = result
 
         except Exception as e:
             print(f"Error processing {metabolite}: {e}", file=sys.stderr)
-            differential_priors[metabolite] = {
-                "relevance": 0.5,
-                "direction": "unclear",
-                "rationale": f"Error in LLM processing: {str(e)[:100]}",
-                "expected_log2fc": 0.0,
-                "prior_sd": 0.8,
-                "magnitude": "moderate",
-                "confidence": "low",
-                "group": "unchanged",
+            qualitative_predictions[metabolite] = {
+                "prediction": "unchanged",
+                "magnitude": "small",
+                "confidence": 0.0,
+                "reasoning": f"Error in LLM processing: {str(e)[:100]}",
             }
 
-    return differential_priors
+    return qualitative_predictions
+
+
+def map_qualitative_to_numerical_priors(
+    qualitative_predictions: Dict[str, Dict], prior_strength: str = "conservative"
+) -> Dict[str, Dict]:
+    """
+    Map qualitative LLM predictions to numerical priors based on strength.
+
+    Parameters:
+    -----------
+    qualitative_predictions : dict
+        Dictionary mapping metabolite names to qualitative predictions
+    prior_strength : str
+        Prior strength ("conservative", "moderate", or "strong")
+
+    Returns:
+    --------
+    dict
+        Dictionary mapping metabolite names to numerical prior information
+    """
+
+    def conservative_directional_prior(prediction, magnitude, confidence):
+        """Conservative prior: magnitude drives mean, confidence drives uncertainty."""
+        # Magnitude-based effect sizes (conservative scaling)
+        magnitude_effects = {
+            "small": 0.08,
+            "moderate": 0.15, 
+            "large": 0.25
+        }
+        
+        base_effect = magnitude_effects.get(magnitude, 0.10)  # Default to moderate
+        
+        if prediction == "increase":
+            prior_mean = base_effect
+        elif prediction == "decrease":
+            prior_mean = -base_effect
+        else:
+            prior_mean = 0.0
+        
+        # Confidence-based uncertainty (conservative: wider overall)
+        if confidence > 0.8:
+            prior_sd = 0.5  # High confidence → moderate uncertainty
+        elif confidence > 0.6:
+            prior_sd = 0.7  # Medium confidence → higher uncertainty  
+        else:
+            prior_sd = 0.9  # Low confidence → high uncertainty
+            
+        return prior_mean, prior_sd
+
+    def moderate_directional_prior(prediction, magnitude, confidence):
+        """Moderate prior: magnitude drives mean, confidence drives uncertainty."""
+        # Magnitude-based effect sizes (moderate scaling) 
+        magnitude_effects = {
+            "small": 0.12,
+            "moderate": 0.22,
+            "large": 0.35
+        }
+        
+        base_effect = magnitude_effects.get(magnitude, 0.15)  # Default to moderate
+        
+        if prediction == "increase":
+            prior_mean = base_effect
+        elif prediction == "decrease":
+            prior_mean = -base_effect
+        else:
+            prior_mean = 0.0
+
+        # Confidence-based uncertainty (moderate: tighter than conservative)
+        if confidence > 0.8:
+            prior_sd = 0.3  # High confidence → tight uncertainty
+        elif confidence > 0.6:
+            prior_sd = 0.5  # Medium confidence → moderate uncertainty
+        else:
+            prior_sd = 0.7  # Low confidence → wider uncertainty
+
+        return prior_mean, prior_sd
+
+    def strong_directional_prior(prediction, confidence):
+        """Strong prior: direction + confidence, larger effect sizes with tight uncertainty."""
+        base_effect = 0.15  # Medium effect size (still reasonable for metabolomics)
+
+        if prediction == "increase":
+            prior_mean = base_effect * confidence
+        elif prediction == "decrease":
+            prior_mean = -base_effect * confidence
+        else:
+            prior_mean = 0.0
+
+        # Strong: tight uncertainty, especially for high confidence
+        if confidence < 0.4:
+            prior_sd = 0.6  # Some uncertainty
+        elif confidence < 0.7:
+            prior_sd = 0.3  # Low uncertainty
+        else:
+            prior_sd = 0.2  # Very tight
+
+        return prior_mean, prior_sd
+
+    numerical_priors = {}
+
+    for metabolite, qual_pred in qualitative_predictions.items():
+        prediction = qual_pred["prediction"]
+        magnitude = qual_pred["magnitude"]
+        confidence = qual_pred["confidence"]
+        reasoning = qual_pred["reasoning"]
+
+        # Choose mapping based on strength (now use magnitude + confidence)
+        if prior_strength == "conservative":
+            expected_lnfc, prior_sd = conservative_directional_prior(
+                prediction, magnitude, confidence
+            )
+        elif prior_strength == "moderate":
+            expected_lnfc, prior_sd = moderate_directional_prior(
+                prediction, magnitude, confidence
+            )
+        elif prior_strength == "strong":
+            expected_lnfc, prior_sd = strong_directional_prior(prediction, confidence)
+        else:
+            raise ValueError(
+                f"Unknown prior_strength: {prior_strength}. Must be 'conservative', 'moderate', or 'strong'."
+            )
+
+        numerical_priors[metabolite] = {
+            "prediction": prediction,
+            "magnitude": magnitude,
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "expected_lnfc": expected_lnfc,
+            "prior_sd": prior_sd,
+        }
+
+    return numerical_priors
+
+
+def get_llm_differential_priors(
+    priors: PriorData,
+    condition: str,
+    llm_scorer=None,
+    hmdb_retriever=None,
+    use_hmdb_context: bool = True,
+    prior_strength: str = "conservative",
+    model_name: str = "gemini-2.5-flash-lite-preview-06-17",
+    qualitative_predictions: Optional[Dict[str, Dict]] = None,
+) -> Dict[str, Dict]:
+    """
+    Generate LLM-informed numerical priors for differential expression analysis.
+
+    If qualitative_predictions are provided, uses them directly and applies numerical mapping.
+    Otherwise, generates qualitative predictions first then applies mapping.
+
+    Parameters:
+    -----------
+    priors : PriorData
+        Data container with HMDB contexts
+    condition : str
+        Study condition or experimental design
+    llm_scorer : object, optional
+        LLM scorer object
+    hmdb_retriever : HMDBRetriever, optional
+        RAG-based HMDB retriever for enhanced context
+    use_hmdb_context : bool
+        Whether to use HMDB context information
+    prior_strength : str
+        Prior strength ("conservative", "moderate", or "strong")
+    model_name : str
+        LLM model to use
+    qualitative_predictions : dict, optional
+        Pre-generated qualitative predictions to reuse
+
+    Returns:
+    --------
+    dict
+        Dictionary mapping metabolite names to numerical prior information
+    """
+    if qualitative_predictions is None:
+        # Generate qualitative predictions
+        qualitative_predictions = get_llm_qualitative_predictions(
+            priors, condition, llm_scorer, hmdb_retriever, use_hmdb_context, model_name
+        )
+
+    # Map to numerical priors
+    return map_qualitative_to_numerical_priors(qualitative_predictions, prior_strength)
 
 
 def get_network_priors(

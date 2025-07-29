@@ -2,10 +2,8 @@
 Test script to inspect the context retrieved from HMDB for a single metabolite.
 """
 
-import pytest
-import pandas as pd
-from apriomics.priors import PriorData
 from chembridge.databases.hmdb import HMDBClient
+
 
 def test_inspect_hmdb_context():
     """
@@ -41,10 +39,14 @@ def test_inspect_hmdb_context():
                 context_parts.append(f"Tissue locations: {tissue_str}")
             hmdb_contexts[metabolite_name] = " | ".join(context_parts)
         else:
-            hmdb_contexts[metabolite_name] = f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id}, no data found)"
+            hmdb_contexts[metabolite_name] = (
+                f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id}, no data found)"
+            )
     except Exception as e:
         print(f"Error fetching data for {hmdb_id}: {e}")
-        hmdb_contexts[metabolite_name] = f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id}, error fetching)"
+        hmdb_contexts[metabolite_name] = (
+            f"Metabolite: {metabolite_name} (HMDB ID: {hmdb_id}, error fetching)"
+        )
 
     # Print the context for inspection
     print(f"--- Context for {metabolite_name} ---")

@@ -1,10 +1,6 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-from chembridge.databases.hmdb import HMDBClient
-from chembridge import map_chebi_to_hmdb, map_hmdb_to_chebi, map_metabolites
+from chembridge import map_metabolites
 
 # Load the dataset
 data = pd.read_csv(

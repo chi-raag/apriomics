@@ -5,7 +5,10 @@ Functions for building graph-based priors from metabolic networks.
 import numpy as np
 from typing import List, Tuple, Dict
 
-def build_laplacian_matrix(metabolite_ids: List[str], edges: List[Tuple[str, str]]) -> np.ndarray:
+
+def build_laplacian_matrix(
+    metabolite_ids: List[str], edges: List[Tuple[str, str]]
+) -> np.ndarray:
     """
     Builds the graph Laplacian matrix from a list of metabolites and their connections.
 
@@ -27,7 +30,9 @@ def build_laplacian_matrix(metabolite_ids: List[str], edges: List[Tuple[str, str
         return np.array([])
 
     # Create a mapping from HMDB ID to index for quick lookups
-    id_to_index: Dict[str, int] = {hmdb_id: i for i, hmdb_id in enumerate(metabolite_ids)}
+    id_to_index: Dict[str, int] = {
+        hmdb_id: i for i, hmdb_id in enumerate(metabolite_ids)
+    }
 
     # Initialize adjacency matrix (A) and degree matrix (D)
     adjacency_matrix = np.zeros((num_metabolites, num_metabolites))

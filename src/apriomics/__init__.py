@@ -20,7 +20,7 @@ from .priors import (
     get_network_priors,
     save_results,
     run_pipeline,
-    pipe
+    pipe,
 )
 
 from .literature import clean_pathway_list_with_llm, DSPyPathwayCleaner
@@ -29,6 +29,7 @@ from .literature import clean_pathway_list_with_llm, DSPyPathwayCleaner
 try:
     from .rag import HMDBParser, HMDBVectorBuilder, HMDBRetriever
     from .rag.simple_hmdb_scraper import SimpleHMDBScraper
+
     RAG_AVAILABLE = True
 except ImportError:
     RAG_AVAILABLE = False
@@ -41,8 +42,9 @@ try:
         plot_signed_network,
         plot_bayesian_scores,
         analyze_priors,
-        create_comprehensive_report
+        create_comprehensive_report,
     )
+
     VIZ_AVAILABLE = True
 except ImportError:
     VIZ_AVAILABLE = False
@@ -50,36 +52,40 @@ except ImportError:
 __version__ = "0.1.0"
 
 __all__ = [
-    'PriorData',
-    'load_metabolites_from_excel',
-    'get_smiles',
-    'generate_fingerprints',
-    'create_similarity_matrix',
-    'get_kernel',
-    'get_hmdb_contexts',
-    'get_metabolite_context_for_llm',
-    'get_llm_differential_priors',
-    'get_network_priors',
-    'save_results',
-    'run_pipeline',
-    'pipe',
-    'clean_pathway_list_with_llm',
-    'DSPyPathwayCleaner',
-    'RAG_AVAILABLE',
-    'VIZ_AVAILABLE'
+    "PriorData",
+    "load_metabolites_from_excel",
+    "get_smiles",
+    "generate_fingerprints",
+    "create_similarity_matrix",
+    "get_kernel",
+    "get_hmdb_contexts",
+    "get_metabolite_context_for_llm",
+    "get_llm_differential_priors",
+    "get_network_priors",
+    "save_results",
+    "run_pipeline",
+    "pipe",
+    "clean_pathway_list_with_llm",
+    "DSPyPathwayCleaner",
+    "RAG_AVAILABLE",
+    "VIZ_AVAILABLE",
 ]
 
 # Add RAG components to __all__ if available
 if RAG_AVAILABLE:
-    __all__.extend(['HMDBParser', 'HMDBVectorBuilder', 'HMDBRetriever', 'SimpleHMDBScraper'])
+    __all__.extend(
+        ["HMDBParser", "HMDBVectorBuilder", "HMDBRetriever", "SimpleHMDBScraper"]
+    )
 
 # Add visualization components to __all__ if available
 if VIZ_AVAILABLE:
-    __all__.extend([
-        'MarkovFieldVisualizer',
-        'LLMPriorVisualizer',
-        'plot_signed_network',
-        'plot_bayesian_scores',
-        'analyze_priors',
-        'create_comprehensive_report'
-    ])
+    __all__.extend(
+        [
+            "MarkovFieldVisualizer",
+            "LLMPriorVisualizer",
+            "plot_signed_network",
+            "plot_bayesian_scores",
+            "analyze_priors",
+            "create_comprehensive_report",
+        ]
+    )

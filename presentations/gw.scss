@@ -1,0 +1,25 @@
+/*-- scss:defaults --*/
+
+// Override theme settings
+$font-family-sans-serif: "Avenir", sans-serif !default;
+$body-color: #000 !default;
+$presentation-heading-font: "Avenir", sans-serif !default;
+$presentation-heading-color: #033C5A !default;
+$presentation-heading-text-shadow: none !default;
+$presentation-heading-text-transform: none !default;
+$body-bg: #fff !default;
+$link-color: #00008b !default;
+$selection-bg: rgba(0, 0, 0, 0.99) !default;
+
+
+$presentation-font-size-root: 25px !default;
+
+$overlayElementBgColor: 0, 0, 0 !default;
+$overlayElementFgColor: 240, 240, 240 !default;
+
+// Change text colors against dark slide backgrounds
+$dark-bg-text-color: #fff !default;
+
+.reveal .slide-logo {
+    max-height: 100px !important;
+}

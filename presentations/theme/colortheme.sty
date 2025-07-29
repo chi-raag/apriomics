@@ -1,0 +1,27 @@
+\mode<presentation>
+
+% Define GWU official colors
+\RequirePackage{xcolor}
+\definecolor{GWBlue}{HTML}{033C5A}
+\definecolor{GWBuff}{HTML}{AA9868}
+
+% Set beamer colors
+\setbeamercolor{palette primary}{bg=GWBlue,fg=white}
+\setbeamercolor{palette secondary}{bg=GWBuff,fg=white}
+\setbeamercolor{palette tertiary}{bg=white,fg=GWBlue}
+\setbeamercolor{palette quaternary}{bg=GWBlue,fg=white}
+
+\setbeamercolor{structure}{fg=GWBlue} % Main structure color (titles, etc.)
+\setbeamercolor{title in header/footer}{parent=palette primary}
+
+% Itemize and Enumerate
+\setbeamercolor{itemize item}{fg=GWBuff}
+\setbeamercolor{itemize subitem}{fg=GWBuff}
+\setbeamercolor{enumerate item}{fg=GWBlue}
+\setbeamercolor{enumerate subitem}{fg=GWBuff}
+
+% Block environments
+\setbeamercolor{block title}{use=structure,fg=white,bg=GWBlue}
+\setbeamercolor{block body}{bg=white,fg=black}
+
+\mode<all>

@@ -3,12 +3,16 @@ Utilities for interacting with the KEGG database API.
 """
 
 import requests
-import sys, typing
+import sys
+import typing
 
 KEGG_FIND_URL = "https://rest.kegg.jp/find/compound/{}"
 KEGG_LINK_REACTION_URL = "https://rest.kegg.jp/link/reaction/{}"
 
-def get_kegg_id_from_name(metabolite_name: str, exact_match: bool = True) -> typing.Union[str, None]:
+
+def get_kegg_id_from_name(
+    metabolite_name: str, exact_match: bool = True
+) -> typing.Union[str, None]:
     """
     Finds the KEGG Compound ID for a given metabolite name using the KEGG REST API.
 
@@ -31,8 +35,8 @@ def get_kegg_id_from_name(metabolite_name: str, exact_match: bool = True) -> typ
     url = KEGG_FIND_URL.format(url_encoded_name)
 
     try:
-        response = requests.get(url, timeout=15) # Increased timeout slightly
-        response.raise_for_status() # Check for HTTP errors (4xx or 5xx)
+        response = requests.get(url, timeout=15)  # Increased timeout slightly
+        response.raise_for_status()  # Check for HTTP errors (4xx or 5xx)
         text = response.text.strip()
 
         if not text:
@@ -45,53 +49,64 @@ def get_kegg_id_from_name(metabolite_name: str, exact_match: bool = True) -> typ
         first_match_id = None
 
         for line in lines:
-            if '\t' not in line: # Ensure the line has the expected format
+            if "\t" not in line:  # Ensure the line has the expected format
                 continue
-            kegg_id_full, names_str = line.split('\t', 1)
+            kegg_id_full, names_str = line.split("\t", 1)
 
             # Extract Cxxxxx from cpd:Cxxxxx or similar prefixes
-            if ':' in kegg_id_full:
-                 kegg_id = kegg_id_full.split(':')[1]
+            if ":" in kegg_id_full:
+                kegg_id = kegg_id_full.split(":")[1]
             else:
-                 continue # Skip if ID format is unexpected
+                continue  # Skip if ID format is unexpected
 
             if first_match_id is None:
-                 first_match_id = kegg_id # Store the first ID found
+                first_match_id = kegg_id  # Store the first ID found
 
             # Check for exact match (case-insensitive)
-            names = [name.strip().lower() for name in names_str.split(';')]
+            names = [name.strip().lower() for name in names_str.split(";")]
             if search_term in names:
-                if kegg_id not in possible_matches: # Avoid duplicate IDs if name appears multiple times
-                     possible_matches.append(kegg_id)
+                if (
+                    kegg_id not in possible_matches
+                ):  # Avoid duplicate IDs if name appears multiple times
+                    possible_matches.append(kegg_id)
 
         if exact_match:
             if len(possible_matches) == 1:
                 return possible_matches[0]
             elif len(possible_matches) > 1:
-                print(f"Warning: Found multiple exact KEGG ID matches for '{metabolite_name}': {possible_matches}. Returning the first one found: {possible_matches[0]}.", file=sys.stderr)
-                return possible_matches[0] # Return first exact match found
+                print(
+                    f"Warning: Found multiple exact KEGG ID matches for '{metabolite_name}': {possible_matches}. Returning the first one found: {possible_matches[0]}.",
+                    file=sys.stderr,
+                )
+                return possible_matches[0]  # Return first exact match found
             else:
-                 # print(f"Info: Found KEGG results for '{metabolite_name}' but no exact name match.", file=sys.stderr)
-                 return None # No exact match found
+                # print(f"Info: Found KEGG results for '{metabolite_name}' but no exact name match.", file=sys.stderr)
+                return None  # No exact match found
         else:
-             # Return the first ID found if exact_match is False and any results exist
-             if first_match_id:
-                 return first_match_id
-             else:
-                 # This case should ideally not be reached if text was not empty, but included for safety
-                 return None
-
+            # Return the first ID found if exact_match is False and any results exist
+            if first_match_id:
+                return first_match_id
+            else:
+                # This case should ideally not be reached if text was not empty, but included for safety
+                return None
 
     except requests.exceptions.Timeout:
-        print(f"Error: Timeout occurred while fetching KEGG data for '{metabolite_name}'.", file=sys.stderr)
+        print(
+            f"Error: Timeout occurred while fetching KEGG data for '{metabolite_name}'.",
+            file=sys.stderr,
+        )
         return None
     except requests.exceptions.RequestException as e:
         print(f"Error fetching KEGG data for '{metabolite_name}': {e}", file=sys.stderr)
         return None
     except Exception as e:
         # Catch potential errors during parsing etc.
-        print(f"An unexpected error occurred while processing '{metabolite_name}': {e}", file=sys.stderr)
+        print(
+            f"An unexpected error occurred while processing '{metabolite_name}': {e}",
+            file=sys.stderr,
+        )
         return None
+
 
 def get_reactions_for_compound(compound_id: str) -> list[str]:
     """
@@ -105,8 +120,11 @@ def get_reactions_for_compound(compound_id: str) -> list[str]:
         A list of associated KEGG Reaction IDs (e.g., ["R00123", "R00456"]),
         or an empty list if none are found or an error occurs.
     """
-    if not compound_id or not compound_id.startswith('C'):
-        print(f"Warning: Invalid or empty compound ID provided: '{compound_id}'. Expected format like 'Cxxxxx'.", file=sys.stderr)
+    if not compound_id or not compound_id.startswith("C"):
+        print(
+            f"Warning: Invalid or empty compound ID provided: '{compound_id}'. Expected format like 'Cxxxxx'.",
+            file=sys.stderr,
+        )
         return []
 
     url = KEGG_LINK_REACTION_URL.format(compound_id)
@@ -123,28 +141,40 @@ def get_reactions_for_compound(compound_id: str) -> list[str]:
 
         lines = text.splitlines()
         for line in lines:
-            if '\t' not in line:
+            if "\t" not in line:
                 continue
-            c_id_full, r_id_full = line.split('\t', 1)
+            c_id_full, r_id_full = line.split("\t", 1)
             # Extract Rxxxxx from rn:Rxxxxx
-            if ':' in r_id_full:
-                r_id = r_id_full.split(':')[1]
+            if ":" in r_id_full:
+                r_id = r_id_full.split(":")[1]
                 reaction_ids.append(r_id)
             else:
-                print(f"Warning: Unexpected reaction ID format found for compound '{compound_id}': '{r_id_full}'. Skipping.", file=sys.stderr)
-
+                print(
+                    f"Warning: Unexpected reaction ID format found for compound '{compound_id}': '{r_id_full}'. Skipping.",
+                    file=sys.stderr,
+                )
 
     except requests.exceptions.Timeout:
-        print(f"Error: Timeout occurred while fetching linked reactions for compound '{compound_id}'.", file=sys.stderr)
-        return [] # Return empty list on error
+        print(
+            f"Error: Timeout occurred while fetching linked reactions for compound '{compound_id}'.",
+            file=sys.stderr,
+        )
+        return []  # Return empty list on error
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching linked reactions for compound '{compound_id}': {e}", file=sys.stderr)
-        return [] # Return empty list on error
+        print(
+            f"Error fetching linked reactions for compound '{compound_id}': {e}",
+            file=sys.stderr,
+        )
+        return []  # Return empty list on error
     except Exception as e:
-        print(f"An unexpected error occurred while processing linked reactions for '{compound_id}': {e}", file=sys.stderr)
-        return [] # Return empty list on error
+        print(
+            f"An unexpected error occurred while processing linked reactions for '{compound_id}': {e}",
+            file=sys.stderr,
+        )
+        return []  # Return empty list on error
 
     return reaction_ids
+
 
 # Example usage:
 # if __name__ == "__main__":
@@ -165,4 +195,4 @@ def get_reactions_for_compound(compound_id: str) -> list[str]:
 #     kegg_id_ambiguous = get_kegg_id_from_name(ambiguous_name, exact_match=True)
 #     print(f"Name: '{ambiguous_name}' -> KEGG ID: {kegg_id_ambiguous}")
 #     kegg_id_ambiguous_first = get_kegg_id_from_name(ambiguous_name, exact_match=False)
-#     print(f"Name: '{ambiguous_name}' (first match) -> KEGG ID: {kegg_id_ambiguous_first}") 
+#     print(f"Name: '{ambiguous_name}' (first match) -> KEGG ID: {kegg_id_ambiguous_first}")

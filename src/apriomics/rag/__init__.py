@@ -12,9 +12,4 @@ from .hmdb_parser import HMDBParser, MetaboliteChunk
 from .vector_builder import HMDBVectorBuilder
 from .retriever import HMDBRetriever
 
-__all__ = [
-    'HMDBParser',
-    'MetaboliteChunk', 
-    'HMDBVectorBuilder',
-    'HMDBRetriever'
-]
+__all__ = ["HMDBParser", "MetaboliteChunk", "HMDBVectorBuilder", "HMDBRetriever"]

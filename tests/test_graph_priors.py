@@ -2,9 +2,9 @@
 Tests for the graph_priors module.
 """
 
-import pytest
 import numpy as np
 from apriomics.priors.graph_priors import build_laplacian_matrix
+
 
 class TestBuildLaplacianMatrix:
     """Test the build_laplacian_matrix function."""
@@ -31,11 +31,7 @@ class TestBuildLaplacianMatrix:
         # A  1 -1  0
         # B -1  2 -1
         # C  0 -1  1
-        expected_laplacian = np.array([
-            [1, -1,  0],
-            [-1, 2, -1],
-            [0, -1,  1]
-        ])
+        expected_laplacian = np.array([[1, -1, 0], [-1, 2, -1], [0, -1, 1]])
 
         result = build_laplacian_matrix(metabolite_ids, edges)
         np.testing.assert_array_equal(result, expected_laplacian)
@@ -43,7 +39,7 @@ class TestBuildLaplacianMatrix:
     def test_disconnected_graph(self):
         """Test a graph with a disconnected component."""
         metabolite_ids = ["A", "B", "C", "D"]
-        edges = [("A", "B")] # C and D are disconnected
+        edges = [("A", "B")]  # C and D are disconnected
 
         # Expected Laplacian:
         #   A  B  C  D
@@ -51,12 +47,9 @@ class TestBuildLaplacianMatrix:
         # B -1  1  0  0
         # C  0  0  0  0
         # D  0  0  0  0
-        expected_laplacian = np.array([
-            [1, -1, 0, 0],
-            [-1, 1, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]
-        ])
+        expected_laplacian = np.array(
+            [[1, -1, 0, 0], [-1, 1, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+        )
 
         result = build_laplacian_matrix(metabolite_ids, edges)
         np.testing.assert_array_equal(result, expected_laplacian)
@@ -77,12 +70,9 @@ class TestBuildLaplacianMatrix:
     def test_edge_with_unknown_metabolite(self):
         """Test that edges with metabolites not in the main list are ignored."""
         metabolite_ids = ["A", "B"]
-        edges = [("A", "B"), ("B", "C")] # C is not in metabolite_ids
+        edges = [("A", "B"), ("B", "C")]  # C is not in metabolite_ids
 
-        expected_laplacian = np.array([
-            [1, -1],
-            [-1, 1]
-        ])
+        expected_laplacian = np.array([[1, -1], [-1, 1]])
 
         result = build_laplacian_matrix(metabolite_ids, edges)
         np.testing.assert_array_equal(result, expected_laplacian)

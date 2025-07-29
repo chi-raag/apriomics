@@ -12,11 +12,13 @@ from .base import (
     get_kernel,
     get_hmdb_contexts,
     get_metabolite_context_for_llm,
+    get_llm_qualitative_predictions,
+    map_qualitative_to_numerical_priors,
     get_llm_differential_priors,
     get_network_priors,
     save_results,
     run_pipeline,
-    pipe
+    pipe,
 )
 from .graph_priors import build_laplacian_matrix
 
@@ -30,10 +32,12 @@ __all__ = [
     "get_kernel",
     "get_hmdb_contexts",
     "get_metabolite_context_for_llm",
+    "get_llm_qualitative_predictions",
+    "map_qualitative_to_numerical_priors",
     "get_llm_differential_priors",
     "get_network_priors",
     "save_results",
     "run_pipeline",
     "pipe",
-    "build_laplacian_matrix"
+    "build_laplacian_matrix",
 ]

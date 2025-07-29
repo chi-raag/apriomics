@@ -6,8 +6,7 @@ understand metabolite relevance for differential analysis.
 """
 
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
-from typing import Iterator, List, Optional, Dict, Any
+from typing import Iterator, List, Optional, Dict
 from pathlib import Path
 import sys
 
@@ -188,54 +187,75 @@ class FocusedHMDBParser:
         functions = self._extract_functions(metabolite_elem)
         if functions:
             # Filter for most relevant functions
-            relevant_functions = [f for f in functions if self._is_relevant_function(f)][:5]
-            
+            relevant_functions = [
+                f for f in functions if self._is_relevant_function(f)
+            ][:5]
+
             if relevant_functions:
-                func_content = f"{name} biological functions: {'; '.join(relevant_functions)}"
-                
-                chunks.append(MetaboliteChunk(
-                    hmdb_id=hmdb_id,
-                    chunk_type='functions',
-                    content=func_content,
-                    metadata={'name': name, 'functions': relevant_functions}
-                ))
-        
+                func_content = (
+                    f"{name} biological functions: {'; '.join(relevant_functions)}"
+                )
+
+                chunks.append(
+                    MetaboliteChunk(
+                        hmdb_id=hmdb_id,
+                        chunk_type="functions",
+                        content=func_content,
+                        metadata={"name": name, "functions": relevant_functions},
+                    )
+                )
+
         # Biochemical class chunk (high value for LLM priors)
         biochemical_class = self._extract_biochemical_class(metabolite_elem)
-        if biochemical_class and (biochemical_class.get('class') or biochemical_class.get('subclass')):
+        if biochemical_class and (
+            biochemical_class.get("class") or biochemical_class.get("subclass")
+        ):
             class_info = []
-            if biochemical_class.get('class'):
+            if biochemical_class.get("class"):
                 class_info.append(f"Class: {biochemical_class['class']}")
-            if biochemical_class.get('subclass'):
+            if biochemical_class.get("subclass"):
                 class_info.append(f"Subclass: {biochemical_class['subclass']}")
-            if biochemical_class.get('super_class'):
+            if biochemical_class.get("super_class"):
                 class_info.append(f"Super class: {biochemical_class['super_class']}")
-            
+
             if class_info:
-                class_content = f"{name} biochemical classification: {'; '.join(class_info)}"
-                
-                chunks.append(MetaboliteChunk(
-                    hmdb_id=hmdb_id,
-                    chunk_type='biochemical_class',
-                    content=class_content,
-                    metadata={'name': name, 'biochemical_class': biochemical_class}
-                ))
-        
+                class_content = (
+                    f"{name} biochemical classification: {'; '.join(class_info)}"
+                )
+
+                chunks.append(
+                    MetaboliteChunk(
+                        hmdb_id=hmdb_id,
+                        chunk_type="biochemical_class",
+                        content=class_content,
+                        metadata={"name": name, "biochemical_class": biochemical_class},
+                    )
+                )
+
         # Protein interactions chunk (filtered for relevance)
         protein_interactions = self._extract_protein_interactions(metabolite_elem)
         if protein_interactions:
             # Focus on enzymes and transporters
-            relevant_proteins = [p for p in protein_interactions if self._is_relevant_protein(p)][:8]
-            
+            relevant_proteins = [
+                p for p in protein_interactions if self._is_relevant_protein(p)
+            ][:8]
+
             if relevant_proteins:
-                protein_content = f"{name} protein interactions: {'; '.join(relevant_proteins)}"
-                
-                chunks.append(MetaboliteChunk(
-                    hmdb_id=hmdb_id,
-                    chunk_type='protein_interactions',
-                    content=protein_content,
-                    metadata={'name': name, 'protein_interactions': relevant_proteins}
-                ))
+                protein_content = (
+                    f"{name} protein interactions: {'; '.join(relevant_proteins)}"
+                )
+
+                chunks.append(
+                    MetaboliteChunk(
+                        hmdb_id=hmdb_id,
+                        chunk_type="protein_interactions",
+                        content=protein_content,
+                        metadata={
+                            "name": name,
+                            "protein_interactions": relevant_proteins,
+                        },
+                    )
+                )
 
         return chunks
 
@@ -336,104 +356,141 @@ class FocusedHMDBParser:
         ]
 
         return any(major in biospecimen_lower for major in major_biospecimens)
-    
+
     def _extract_functions(self, metabolite_elem) -> List[str]:
         """Extract biological functions and roles."""
         functions = []
-        
+
         # Extract from biological_properties/general_function
-        general_function = self._get_text(metabolite_elem, 'biological_properties/general_function', '')
+        general_function = self._get_text(
+            metabolite_elem, "biological_properties/general_function", ""
+        )
         if general_function:
             functions.append(f"General function: {general_function}")
-        
+
         # Extract from biological_properties/specific_function
-        specific_function = self._get_text(metabolite_elem, 'biological_properties/specific_function', '')
+        specific_function = self._get_text(
+            metabolite_elem, "biological_properties/specific_function", ""
+        )
         if specific_function:
             functions.append(f"Specific function: {specific_function}")
-        
+
         # Extract from biological_properties/cellular_locations
-        cellular_locations = metabolite_elem.find(f'{self.namespace}biological_properties/{self.namespace}cellular_locations')
+        cellular_locations = metabolite_elem.find(
+            f"{self.namespace}biological_properties/{self.namespace}cellular_locations"
+        )
         if cellular_locations is not None:
-            for location in cellular_locations.findall(f'{self.namespace}cellular_location'):
-                location_name = self._get_text(location, '', '')
+            for location in cellular_locations.findall(
+                f"{self.namespace}cellular_location"
+            ):
+                location_name = self._get_text(location, "", "")
                 if location_name:
                     functions.append(f"Cellular location: {location_name}")
-        
+
         return functions
-    
+
     def _extract_biochemical_class(self, metabolite_elem) -> Dict[str, str]:
         """Extract biochemical classification data."""
-        taxonomy_elem = metabolite_elem.find(f'{self.namespace}taxonomy')
+        taxonomy_elem = metabolite_elem.find(f"{self.namespace}taxonomy")
         if taxonomy_elem is None:
             return {}
-        
+
         classification = {
-            'description': self._get_text(taxonomy_elem, 'description', ''),
-            'direct_parent': self._get_text(taxonomy_elem, 'direct_parent', ''),
-            'kingdom': self._get_text(taxonomy_elem, 'kingdom', ''),
-            'super_class': self._get_text(taxonomy_elem, 'super_class', ''),
-            'class': self._get_text(taxonomy_elem, 'class', ''),
-            'subclass': self._get_text(taxonomy_elem, 'sub_class', ''),
-            'molecular_framework': self._get_text(taxonomy_elem, 'molecular_framework', ''),
-            'alternative_parents': []
+            "description": self._get_text(taxonomy_elem, "description", ""),
+            "direct_parent": self._get_text(taxonomy_elem, "direct_parent", ""),
+            "kingdom": self._get_text(taxonomy_elem, "kingdom", ""),
+            "super_class": self._get_text(taxonomy_elem, "super_class", ""),
+            "class": self._get_text(taxonomy_elem, "class", ""),
+            "subclass": self._get_text(taxonomy_elem, "sub_class", ""),
+            "molecular_framework": self._get_text(
+                taxonomy_elem, "molecular_framework", ""
+            ),
+            "alternative_parents": [],
         }
-        
+
         # Extract alternative parents
-        alt_parents_elem = taxonomy_elem.find(f'{self.namespace}alternative_parents')
+        alt_parents_elem = taxonomy_elem.find(f"{self.namespace}alternative_parents")
         if alt_parents_elem is not None:
-            for parent in alt_parents_elem.findall(f'{self.namespace}alternative_parent'):
-                parent_name = self._get_text(parent, '', '')
+            for parent in alt_parents_elem.findall(
+                f"{self.namespace}alternative_parent"
+            ):
+                parent_name = self._get_text(parent, "", "")
                 if parent_name:
-                    classification['alternative_parents'].append(parent_name)
-        
+                    classification["alternative_parents"].append(parent_name)
+
         return classification
-    
+
     def _extract_protein_interactions(self, metabolite_elem) -> List[str]:
         """Extract protein associations (enzymes, transporters, binding proteins)."""
         proteins = []
-        
+
         # Extract protein associations
-        protein_associations = metabolite_elem.find(f'{self.namespace}protein_associations')
+        protein_associations = metabolite_elem.find(
+            f"{self.namespace}protein_associations"
+        )
         if protein_associations is not None:
-            for protein in protein_associations.findall(f'{self.namespace}protein'):
-                protein_name = self._get_text(protein, 'name', '')
-                protein_type = self._get_text(protein, 'protein_type', '')
+            for protein in protein_associations.findall(f"{self.namespace}protein"):
+                protein_name = self._get_text(protein, "name", "")
+                protein_type = self._get_text(protein, "protein_type", "")
                 if protein_name and protein_type:
                     proteins.append(f"{protein_type}: {protein_name}")
                 elif protein_name:
                     proteins.append(protein_name)
-        
+
         return proteins
-    
+
     def _is_relevant_function(self, function: str) -> bool:
         """Filter for biologically relevant functions."""
         function_lower = function.lower()
-        
+
         # Skip very generic terms
-        skip_terms = ['unknown', 'not available', 'general', 'other']
+        skip_terms = ["unknown", "not available", "general", "other"]
         if any(term in function_lower for term in skip_terms):
             return False
-        
+
         # Keep specific biological functions
         keep_terms = [
-            'enzyme', 'cofactor', 'substrate', 'inhibitor', 'activator',
-            'signaling', 'transport', 'metabolism', 'synthesis', 'degradation',
-            'regulation', 'binding', 'catalysis', 'membrane', 'cellular'
+            "enzyme",
+            "cofactor",
+            "substrate",
+            "inhibitor",
+            "activator",
+            "signaling",
+            "transport",
+            "metabolism",
+            "synthesis",
+            "degradation",
+            "regulation",
+            "binding",
+            "catalysis",
+            "membrane",
+            "cellular",
         ]
-        
+
         return any(term in function_lower for term in keep_terms) or len(function) > 20
-    
+
     def _is_relevant_protein(self, protein: str) -> bool:
         """Filter for relevant protein interactions."""
         protein_lower = protein.lower()
-        
+
         # Focus on enzymes and transporters
         relevant_types = [
-            'enzyme', 'transporter', 'carrier', 'channel', 'receptor',
-            'kinase', 'phosphatase', 'dehydrogenase', 'synthase', 'hydrolase',
-            'transferase', 'lyase', 'isomerase', 'ligase'
+            "enzyme",
+            "transporter",
+            "carrier",
+            "channel",
+            "receptor",
+            "kinase",
+            "phosphatase",
+            "dehydrogenase",
+            "synthase",
+            "hydrolase",
+            "transferase",
+            "lyase",
+            "isomerase",
+            "ligase",
         ]
-        
+
         return any(ptype in protein_lower for ptype in relevant_types)
 
     def _get_text(self, element, tag: str, default: str = "") -> str:
