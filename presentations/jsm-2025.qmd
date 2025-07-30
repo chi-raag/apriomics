@@ -13,9 +13,9 @@ format:
     revealjs: 
         theme: gw.scss
         html-math-method: mathjax
+        slide-number: true
+mermaid-format: svg
 ---
-
-# Introduction
 
 ## What is metabolomics?
 
@@ -29,184 +29,103 @@ format:
 :::
 
 
-## Effect Size Drives Biological Insight
+## Effect size drives biological insight
 
 ![](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&type=large)
 
-## Univariate testing may lack power
+## Traditional testing lacks power
 
 :::: {.columns}
 
-::: {.column width="60%"}
+::: {.column width="70%"}
 
 ![](images/univariate_simulation.png)
 
 :::
 
-::: {.column width="40%"}
+::: {.column width="30%" .fragment}
 
-- Peluso et al. 2021: “…the complex non-normal structure of metabolic profiles and outcomes may bias the permutation results leading to overly conservative threshold estimates…”
-- Henglin et al. 2022: “We observed that when the number of metabolites was similar to or exceeded the number of study subjects, as is common with nontargeted metabolomics performed in small cohorts, sparse multivariate models demonstrated the most consistent results and the most statistical power.”
+![](https://upload.wikimedia.org/wikipedia/en/e/ec/Human_Metabolome_Database_logo.png){width="60%"}
 
-:::
+![](https://pubchem.ncbi.nlm.nih.gov/pcfe/logo/PubChem_logo.png){width="60%"}
 
-::::
-
-## What to do
-
-:::: {.columns align=center}
-
-::: {.column width="40%"}
-
+:::{.fragment}
 - High dimensionality ($p >> n$)
 - Can lean on assumptions of sparsity
 - Prior knowledge from previous studies, literature, and curated databases
-
 :::
-
-::: {.column width="60%"}
-
-![](https://www.the-tls.com/wp-content/uploads/2019/11/Thomas-Bayes.jpg){width="50%" fig-align="center"}
-
-\
-
-![](images/image.png){width="80%" fig-align="center"}
 
 :::
 
 ::::
 
-## Prior Work
+## Prior work
 
-- Current work is inspired from the LLM-Lasso^[Zhang, E., Goto, R., Sagan, N., Mutter, J., Phillips, N., Alizadeh, A., Lee, K., Blanchet, J., Pilanci, M., and Tibshirani, R. (2025), [“LLM-Lasso: A Robust Framework for Domain-Informed Feature Selection and Regularization,”](https://doi.org/10.48550/arXiv.2502.10648) arXiv.]
+![Capstick, A., Krishnan, R. G., and Barnaghi, P. (2025), [“AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling,”](https://doi.org/10.48550/arXiv.2411.17284.) arXiv.](https://arxiv.org/html/2411.17284v5/x1.png)
 
-![](https://arxiv.org/html/2502.10648v2/x1.png){width="80%" fig-align="center"}
+![Zhang, E., Goto, R., Sagan, N., Mutter, J., Phillips, N., Alizadeh, A., Lee, K., Blanchet, J., Pilanci, M., and Tibshirani, R. (2025), [“LLM-Lasso: A Robust Framework for Domain-Informed Feature Selection and Regularization,”](https://doi.org/10.48550/arXiv.2502.10648) arXiv.](https://arxiv.org/html/2502.10648v2/x1.png){width="80%" fig-align="center"}
 
-
-# Simulation Study
-
-## Empirical Monte-Carlo Subsampling
+## Prior elicitation framework overview
 
 ```{mermaid}
-%%| fig-width: 5.25
- 
----
-config:
-    theme: 'base'
-    themeVariables:
-        fontFamily: NewComputerModernSans10
-        primaryColor: '#F8E08E'
-        secondaryColor: '#0190DB'
----
-graph LR;
-    A[Full Dataset] --> B[Subsample Data]
-    A --> C[Calculate true lnFC]
-    B --> D[Fit Models]
-    E[Uninformative Priors] --> D
-    F[LLM Priors] --> D
-    G[HMDB + LLM Priors] --> D
-    D --> H[Compare model estimates]
-    C --> H
-    H --> I((("Calculate Performance (Correlation and RMSE)")))
-
-classDef prior fill:white;
-class E,F,G prior;
+graph TD;
+    A[LLM] --> B[Metabolite + Study Context]
+    B --> C[LLM Prior Elicitation]
+    C --> D[Bayesian Model]
+    D --> E[Posterior Inference]
+    E --> F[Biological Insights]
 ```
 
-## Experimental Design
-
-**Ground Truth**: Empirical natural log fold change (lnFC) from full MTBLS1 dataset (n=132)
-
-$\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)$
-
-**Evaluation**: Subsampled data (n=10-40) with cross-validation
-
-## Modeling
-
-All Bayesian models use the same log-link GLM structure with different prior specifications:
-
-\begin{align}
-y_{ij} &\sim \mathcal{N}(\mu_{ij}, \sigma_j^2) \\
-\log(\mu_{ij}) &= \alpha_j + \beta_j \cdot x_i \\
-\alpha_j &\sim \mathcal{N}(\log(\bar{y}_j), 1.0) \\
-\sigma_j &\sim \text{HalfNormal}(0.5)
-\end{align}
-
-where $y_{ij}$ is abundance for sample $i$ and metabolite $j$, $x_i \in \{0,1\}$ is group indicator, and $\beta_j$ represents the natural log fold change (lnFC) for metabolite $j$.
-
-## Simulation Study
-
-### LLM Prior Elicitation Process
+## LLM prior elicitation process
 
 **Step 1**: LLM analyzes metabolite + study context
-$\text{LLM}(\text{metabolite}, \text{condition}) \rightarrow \{d_j, m_j, c_j, r_j\}$
+$$\text{LLM}(\text{metabolite}, \text{condition}) \rightarrow \{d_j, m_j, c_j, r_j\}$$
+
+where $d_j \in \{\text{increase, decrease, unchanged}\}$ is predicted direction, $m_j \in \{\text{small, moderate, large}\}$ is predicted magnitude, $c_j \in \left(0, 1\right)$ is confidence level, and $r_j$ is a string representing the rationale.
 
 **Step 2**: Map qualitative predictions to numerical priors
-$\{d_j, m_j, c_j\} \xrightarrow{\text{mapping}} \{\mu_j^{\text{LLM}}, \sigma_j^{\text{LLM}}\}$
+
+\begin{align*}
+\mu_j^{\text{LLM}} &= f_{\mu}\left(m_j, d_j\right) \\
+\sigma_j^{\text{LLM}} &= f_{\sigma}\left(c_j\right)
+\end{align*}
 
 **Step 3**: Use as informative priors in Bayesian model
 $\beta_j \sim \mathcal{N}(\mu_j^{\text{LLM}}, \sigma_j^{\text{LLM}})$
 
-## Simulation Study
+## Priors
 
-### Magnitude-Based Prior Mapping
+**LLM Priors**: $\beta_j \sim \mathcal{N}(\mu_j^{\text{LLM}}, \sigma_j^{\text{LLM}})$
 
-::: {.callout-note appearance="minimal"}
+where $\mu_j^{\text{LLM}}$ and $\sigma_j^{\text{LLM}}$ are derived from LLM predictions:
 
-Magnitude drives effect size, Confidence drives uncertainty. Effect sizes ($m_j$) are on the natural log scale.
-
-:::
+\begin{align}
+\mu_j^{\text{LLM}} &= m_j \cdot \text{sign}(d_j) \\
+\sigma_j^{\text{LLM}} &= f(c_j)
+\end{align}
 
 :::: {.columns}
 
 ::: {.column width="45%"}
-
 **Conservative Mapping**
 
-\vspace{-.7cm}
-  
-\begin{align*}
-\mu_j^{\text{LLM}} &= m_j \cdot \text{sign}(d_j) \\
-\sigma_j^{\text{LLM}} &= f(c_j)
-\end{align*}
+$m_j \in \{0.08, 0.15, 0.25\}$ for $\{\text{small, moderate, large}\}$
 
-\begin{footnotesize}
-where $m_j \in \{0.055, 0.104, 0.173\}$ for magnitude $\in \{\text{small, moderate, large}\}$
-\end{footnotesize}
-
+$f(c_j) \in \{0.5, 0.7, 0.9\}$ for $\{\text{high, med, low}\}$ confidence
 :::
 
 ::: {.column width="45%"}
-
 **Moderate Mapping**
+$m_j \in \{0.12, 0.22, 0.35\}$ for $\{\text{small, moderate, large}\}$
 
-\vspace{-.7cm}
-
-\begin{align*}
-\mu_j^{\text{LLM}} &= m_j \cdot \text{sign}(d_j) \\
-\sigma_j^{\text{LLM}} &= f(c_j)
-\end{align*}
-
-\begin{footnotesize}
-where $m_j \in \{0.083, 0.152, 0.243\}$ for magnitude $\in \{\text{small, moderate, large}\}$, and $f(c_j) \in \{0.3, 0.5, 0.7\}$ for confidence $\in \{\text{high, med, low}\}$
-\end{footnotesize}
-
+$f(c_j) \in \{0.3, 0.5, 0.7\}$ for $\{\text{high, med, low}\}$ confidence
 :::
 
 ::::
 
-where $c_j$ is LLM confidence, $d_j \in \{\text{increase, decrease, unchanged}\}$ is predicted direction, and $m_j$ is predicted magnitude.
+**Oracle Prior (Upper Bound)**: $\beta_j \sim \mathcal{N}(\beta_j^{\text{true}}, 0.25)$
 
-## Priors
-
-### Oracle Prior (Upper Bound)
-
-$$\beta_j \sim \mathcal{N}(\beta_j^{\text{true}}, 0.25)$$
-
-### Weakly Informative Prior
-
-$$\beta_j \sim \mathcal{N}(0, 2)$$
-
+**Weakly Informative Prior**: $\beta_j \sim \mathcal{N}(0, 2)$
 
 ## LLM-Informed Hierarchical Prior
 
@@ -228,152 +147,52 @@ where group $g$ is mapped to $\mu_g^{\mathrm{LLM}}$ as follows:
 \end{cases}
 \end{align*}
 
-## Experimental Design
 
-**Ground Truth**: Empirical natural log fold change (lnFC) from full MTBLS1 dataset (n=132)
+## Modeling
 
-$\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)$
+All Bayesian models use the same log-link GLM structure with different prior specifications:
 
-**Evaluation**: Subsampled data (n=10-40) with cross-validation
+\begin{align}
+y_{ij} &\sim \mathcal{N}(\mu_{ij}, \sigma_j^2) \\
+\log(\mu_{ij}) &= \alpha_j + \beta_j \cdot x_i \\
+\alpha_j &\sim \mathcal{N}(\log(\bar{y}_j), 1.0) \\
+\sigma_j &\sim \text{HalfNormal}(0.5)
+\end{align}
 
-- Oracle provides theoretical upper bound (perfect biological knowledge)
-- LLM methods test practical biological knowledge integration
-- Classical methods provide statistical baselines
+where $y_{ij}$ is abundance for sample $i$ and metabolite $j$, $x_i \in \{0,1\}$ is group indicator, and $\beta_j$ represents the natural log fold change (lnFC) for metabolite $j$.
 
-## Comparing three different models
+## Simulation Study
 
-:::: {.columns}
+### Empirical Monte-Carlo Subsampling
 
-::: {.column width="33%"}
-
-### Weak Prior
-
-```{r}
-library(ggplot2)
-
-set.seed(123)
-prior_samples <- rnorm(10000, mean = 0, sd = 3)
-
-ggplot(data.frame(x = prior_samples), aes(x)) +
-    geom_histogram(aes(y = ..density..), bins = 50, fill = "#0190DB", color = "white", alpha = 0.8) +
-    stat_function(fun = dnorm, args = list(mean = 0, sd = 3), color = "#F8E08E", size = 1.2) +
-    labs(x = "", y = "") +
-    theme_minimal() +
-    theme(
-        axis.text.y = element_blank(),
-        axis.ticks.y = element_blank()
-    )
-
-ggsave("~/Downloads/tmptmptmp.png")
-```
-
-
-:::
-
-::: {.column width="33%"}
-
-### LLM Prior w/no context
-
-```{mermaid}
-%%| fig-width: 1.75
-graph TD;
-    A[Metabolite] --> C[LLM]
-    B[Study Context] --> C
-```
-
-:::
-
-::: {.column width="33%"}
-
-### LLM Prior w/HMDB context
-
-```{dot}
-digraph G {
-  rankdir=TB;                // top-to-bottom layout (Mermaid’s TD)
-
-  // Default node styling
-  node [fontname="Avenir Next", style=filled, fillcolor=white];
-
-  // Regular nodes
-  A [label="Metabolite"];
-  B [label="Study Context"];
-  C [label="LLM"];
-
-  // Image node (no border or fill)
-  D [shape=none, label=<IMG SRC="images/hmdb.png"/>, image="/Users/chiraag/Projects/gwu/lab/apriomics/presentations/images/hmdb.png"]; // labelloc=b keeps label below image (empty here)
-
-  // Edges
-  A -> C;
-  B -> C;
-  D -> C;
-}
-```
-
-:::
-
-::::
-
-
-## How well can we recover the truth?
-
-To test the effectiveness of LLM-generated priors, we designed a simulation study.
-
-:::: {.columns}
-
-::: {.column width="60%"}
-
-**Goal**: Recover "ground truth" effect sizes from a small dataset.
-
-**Dataset**: MTBLS1 (Type 2 Diabetes)
-
-**"Ground Truth"**: Natural log fold changes (lnFC) from the full dataset.
-
-:::
-
-::: {.column width="40%"}
-
-**Models Compared**:
-
-\begin{itemize}
-    \item \textbf{Uninformative Bayesian}: A baseline with wide, non-specific priors.
-    \item \textbf{LLM Priors}: Priors generated by Gemini using only metabolite names and study context.
-    \item \textbf{LLM + Context}: Priors generated by Gemini using metabolite names, study context, AND biological information from the HMDB database.
-\end{itemize}
-
-:::
-
-::::
-
-## Overview
-
-For each dataset: 
-
-```{mermaid}
-%%| fig-width: 5.25
- 
+```{mermaid} 
+%%| fig-height: 3
 ---
 config:
     theme: 'base'
     themeVariables:
-        fontFamily: Avenir Next
+        fontFamily: Avenir Next LT Pro
         primaryColor: '#F8E08E'
         secondaryColor: '#0190DB'
 ---
-
-graph LR;
+graph TD;
     A[Full Dataset] --> B[Subsample Data]
-    A --> C[Calculate lnFC]
+    A --> C[Calculate true lnFC]
     B --> D[Fit Models]
-    E[Uninformative Priors] --> D
+    E[Weakly Informative Priors] --> D
     F[LLM Priors] --> D
     G[HMDB + LLM Priors] --> D
-    D --> H[Compare model estimates]
+    D --> H[Compare model estimators]
     C --> H
-    H --> I((("Calculate Performance (Correlation and RMSE)")))
 
 classDef prior fill:white;
 class E,F,G prior;
 ```
+
+**Ground Truth**: Empirical natural log fold change (lnFC) from full MTBLS1 dataset^[Salek, R. M., Maguire, M. L., Bentley, E., Rubtsov, D. V., Hough, T., Cheeseman, M., Nunez, D., Sweatman, B. C., Haselden, J. N., Cox, R. D., Connor, S. C., and Griffin, J. L. (2007), [“A metabolomic comparison of urinary changes in type 2 diabetes in mouse, rat, and human,”](https://doi.org/10.1152/physiolgenomics.00194.2006.) Physiological Genomics, American Physiological Society.] (n=132)
+
+$$\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)$$
+
 
 
 ## LLM-informed priors improve recovery
@@ -383,18 +202,21 @@ class E,F,G prior;
 library(tidyverse)
 library(ggplot2)
 
-data <- read_csv("../output/benchmark_prior_recovery_results_1.csv")
+data <- read_csv("../output/benchmark_prior_recovery_results.csv")
 
 data_filtered <- data %>%
     filter(Method != "LLM-Informed Hierarchical") %>%
     mutate(
         llm = case_when(
             str_detect(Method, "Flash 2.0") ~ "Flash 2.0",
-            str_detect(Method, "GPT-4.1") ~ "GPT-4.1",
-            str_detect(Method, "O4-Mini") ~ "O4-Mini",
+            str_detect(Method, "Pro") ~ "Pro 2.5",
+            str_detect(Method, "GPT-4o") ~ "GPT-4o",
+            str_detect(Method, "O3 Mini") ~ "O3 Mini",
             str_detect(Method, "Uninformative") ~ "Uninformative",
-            str_detect(Method, "Oracle") ~ "Oracle"
+            str_detect(Method, "Oracle") ~ "Oracle",
+            TRUE ~ "O3"
         ),
+        llm = factor(llm, levels = c("Uninformative", "Flash 2.0", "GPT-4o", "O3", "O3 Mini", "Pro 2.5", "Oracle")),
         context = case_when(
             str_detect(Method, "With Context") ~ "Context",
             str_detect(Method, "No Context") ~ "No Context",
@@ -424,6 +246,15 @@ label_data <- data_filtered %>%
     ungroup()
 
 data_filtered %>%
+    mutate(Method = factor(Method, levels = c(
+        "Uninformative Bayesian",
+        "Flash 2.0 (No Context, Conservative)", "Flash 2.0 (With Context, Conservative)",
+        "GPT-4o (No Context, Conservative)", "GPT-4o (With Context, Conservative)",
+        "O3 (No Context, Conservative)",
+        "O3 Mini (No Context, Conservative)", "O3 Mini (With Context, Conservative)",
+        "Pro 2.5 (No Context, Conservative)", "Pro 2.5 (With Context, Conservative)",
+        "Oracle Bayesian"
+    ))) %>%
     ggplot(aes(x = Method, y = rmse, fill = llm)) +
     geom_boxplot(outliers = FALSE) +
     geom_text(
@@ -446,7 +277,7 @@ data_filtered %>%
         )
     ) +
     facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
-    theme_bw(base_size = 20) +
+    theme_bw(base_size = 20, base_family = "Avenir Next LT Pro") +
     theme(
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -460,23 +291,84 @@ data_filtered %>%
     )
 ```
 
-## Key Findings
+$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}$$
 
-\begin{itemize}
-    \item \textbf{Oracle Establishes Upper Bound}: Perfect biological knowledge achieves $r = 0.97$, providing theoretical maximum for prior performance.
-    \item \textbf{Magnitude-Based Mapping Critical}: Using LLM magnitude predictions (small/moderate/large) for effect sizes significantly improves prior informativeness.
-    \item \textbf{Confidence-Calibrated Uncertainty}: High-confidence LLM predictions warrant tighter prior uncertainties, improving statistical efficiency.
-    \item \textbf{Empirical Bayes Comparison}: LLM priors compete with James-Stein shrinkage, showing biological knowledge can match statistical methods.
-    \item \textbf{Sample Size Effects}: Prior advantage most pronounced at small sample sizes (n=5-10) common in metabolomics studies.
-\end{itemize}
+where $\hat{\beta}_j$ is the estimated effect size and $\beta_j^{\text{true}}$ is the ground truth lnFC for metabolite $m_j$.
 
-# Conclusion
+## LLM Informed estimators are finite-sample efficient
+
+```{r}
+data_bias_var <- read_csv("../output/benchmark_bias_variance_results.csv")
+
+# compute arrow endpoints on the same filtered subset
+arrow_coords <- data_bias_var |>
+    filter(method %in% c("o3_no_context_conservative", "uninformative_bayesian", "oracle_bayesian")) |>
+    summarise(
+        min_bias = min(overall_bias, na.rm = TRUE),
+        min_var  = min(overall_variance, na.rm = TRUE),
+        max_bias = max(overall_bias, na.rm = TRUE),
+        max_var  = max(overall_variance, na.rm = TRUE)
+    ) |>
+    mutate(
+        good_x = min_bias + 0.2 * (max_bias - min_bias),
+        good_y = min_var + 0.2 * (max_var - min_var),
+        bad_x  = min_bias + 0.8 * (max_bias - min_bias),
+        bad_y  = min_var + 0.8 * (max_var - min_var)
+    )
+
+data_bias_var |>
+    filter(method %in% c("o3_no_context_conservative", "uninformative_bayesian", "oracle_bayesian")) |>
+    mutate(
+        method = case_when(
+            method == "o3_no_context_conservative" ~ "O3 No Context",
+            method == "uninformative_bayesian" ~ "Uninformative Bayesian",
+            method == "oracle_bayesian" ~ "Oracle Bayesian"
+        )
+    ) |>
+    ggplot(aes(x = overall_bias, y = overall_variance, color = method)) +
+    geom_point(size = 6) +
+    annotate(
+        "text",
+        x = -Inf, y = -Inf,
+        label = "Low bias & variance",
+        hjust = -0.5, vjust = -.5,
+        size = 3, color = "darkgreen",
+        family = "Avenir Next LT Pro"
+    ) +
+    annotate(
+        "text",
+        x = Inf, y = Inf,
+        label = "High bias & variance",
+        hjust = 1.5, vjust = 1.5,
+        size = 3, color = "red",
+        family = "Avenir Next LT Pro"
+    ) +
+    # arrows pointing into the Good/Bad corners
+    geom_segment(
+        data = arrow_coords,
+        aes(x = good_x, y = good_y, xend = min_bias, yend = min_var),
+        arrow = arrow(length = unit(0.2, "inches")),
+        color = "darkgreen"
+    ) +
+    geom_segment(
+        data = arrow_coords,
+        aes(x = bad_x, y = bad_y, xend = max_bias, yend = max_var),
+        arrow = arrow(length = unit(0.2, "inches")),
+        color = "red"
+    ) +
+    facet_wrap(~sample_size, labeller = labeller(sample_labeller)) +
+    scale_color_brewer(palette = "Dark2", name = "Method") +
+    scale_shape_manual(values = c(16, 17, 15), name = "Method") +
+    labs(
+        x = "Overall Bias",
+        y = "Overall Variance"
+    ) +
+    theme_bw(base_family = "Avenir Next LT Pro")
+```
 
 ## Summary
 
-\begin{itemize}
-    \item \textbf{LLM Prior Elicitation Works}: Automated biological knowledge extraction via LLMs produces informative priors for Bayesian metabolomics analysis.
-    \item \textbf{Mapping Strategy Matters}: Magnitude-driven effect sizes and confidence-calibrated uncertainties are crucial for translating qualitative LLM insights into effective numerical priors.
-    \item \textbf{Practical Impact}: Method particularly valuable for small sample studies (n=5-20) where traditional statistical approaches struggle with high-dimensional metabolomics data.
-    \item \textbf{Future Directions}: Integration with structured databases (HMDB) and prompt engineering advances offer paths for further improvement toward oracle-level performance.
-\end{itemize}
+- **LLM Prior Elicitation Works**: Automated biological knowledge extraction via LLMs produces informative priors for Bayesian metabolomics analysis.
+- **Mapping Strategy Matters**: Magnitude-driven effect sizes and confidence-calibrated uncertainties are crucial for translating qualitative LLM insights into effective numerical priors.
+- **Practical Impact**: Method particularly valuable for small sample studies (n=5-20) where traditional statistical approaches struggle with high-dimensional metabolomics data.
+- **Future Directions**: Integration of other databases, alongside more sophisticated mapping approaches and historical data.

@@ -1,7 +1,5 @@
 library(tidyverse)
 library(ggplot2)
-library(ggpattern)
-
 
 data <- read_csv("./output/benchmark_prior_recovery_results.csv")
 
@@ -77,3 +75,69 @@ data_filtered %>%
         fill  = "LLM Method",
         color = "Context"
     )
+
+
+data_bias_var <- read_csv("./output/benchmark_bias_variance_results.csv")
+
+# compute arrow endpoints on the same filtered subset
+arrow_coords <- data_bias_var |>
+    filter(method %in% c("o3_no_context_conservative", "uninformative_bayesian", "oracle_bayesian")) |>
+    summarise(
+        min_bias = min(overall_bias, na.rm = TRUE),
+        min_var  = min(overall_variance, na.rm = TRUE),
+        max_bias = max(overall_bias, na.rm = TRUE),
+        max_var  = max(overall_variance, na.rm = TRUE)
+    ) |>
+    mutate(
+        good_x = min_bias + 0.2 * (max_bias - min_bias),
+        good_y = min_var + 0.2 * (max_var - min_var),
+        bad_x  = min_bias + 0.8 * (max_bias - min_bias),
+        bad_y  = min_var + 0.8 * (max_var - min_var)
+    )
+
+data_bias_var |>
+    filter(method %in% c("o3_no_context_conservative", "uninformative_bayesian", "oracle_bayesian")) |>
+    mutate(
+        method = case_when(
+            method == "o3_no_context_conservative" ~ "O3 No Context",
+            method == "uninformative_bayesian" ~ "Uninformative Bayesian",
+            method == "oracle_bayesian" ~ "Oracle Bayesian"
+        )
+    ) |>
+    ggplot(aes(x = overall_bias, y = overall_variance, color = method)) +
+    geom_point(size = 6) +
+    annotate(
+        "text",
+        x = -Inf, y = -Inf,
+        label = "Low bias & variance",
+        hjust = -0.1, vjust = -.5,
+        size = 3, color = "darkgreen"
+    ) +
+    annotate(
+        "text",
+        x = Inf, y = Inf,
+        label = "High bias & variance",
+        hjust = 1.1, vjust = 1.5,
+        size = 3, color = "red"
+    ) +
+    # arrows pointing into the Good/Bad corners
+    geom_segment(
+        data = arrow_coords,
+        aes(x = good_x, y = good_y, xend = min_bias, yend = min_var),
+        arrow = arrow(length = unit(0.2, "inches")),
+        color = "darkgreen"
+    ) +
+    geom_segment(
+        data = arrow_coords,
+        aes(x = bad_x, y = bad_y, xend = max_bias, yend = max_var),
+        arrow = arrow(length = unit(0.2, "inches")),
+        color = "red"
+    ) +
+    facet_wrap(~sample_size, labeller = labeller(sample_labeller)) +
+    scale_color_brewer(palette = "Dark2", name = "Method") +
+    scale_shape_manual(values = c(16, 17, 15), name = "Method") +
+    labs(
+        x = "Overall Bias",
+        y = "Overall Variance"
+    ) +
+    theme_bw()
