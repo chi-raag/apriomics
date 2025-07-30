@@ -1431,7 +1431,7 @@ def main():
         sample_data,
         ground_truth_lnfc,
         sample_sizes=[5, 10, 15, 20],
-        n_replicates=20,
+        n_replicates=10,
     )
 
     print("Analyzing results...")

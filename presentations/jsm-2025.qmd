@@ -3,26 +3,16 @@ title: Automated Prior Elicitation for Bayesian Metabolomics Analysis
 subtitle: JSM 2025 | Flexible Prior Elicitation for Bayesian Analysis 
 author: Chiraag Gohel
 date: August 6, 2025
-affiliation: Department of Biostatistics and Bioinformatics
 institute: The Rahnavard Lab, The George Washington University
+logo: images/gw_primary_2c_0.png
 bibliography: references.bib
 csl: https://www.zotero.org/styles/american-statistical-association
 suppress-bibliography: true
+fig-dpi: 150
 format: 
-    beamer:
-        aspectratio: 169
-        engine: knitr
-        urlcolor: ApriBlue
-        linkcolor: Buff
-        outertheme: sidebar
-        outerthemeoptions: 
-            - right
-        table-of-contents: true
-        slide-level: 2
-        include-in-header: 
-            - header.tex
-        dpi: 150
-        fig-dpi: 150
+    revealjs: 
+        theme: gw.scss
+        html-math-method: mathjax
 ---
 
 # Introduction
@@ -31,7 +21,17 @@ format:
 
 ![From Human Metabolome Technologies](https://humanmetabolome.com/ap/wp-content/uploads/2020/11/metabolomics_01.png){width="80%"}
 
-# Common issues in statistical testing
+::: {.notes}
+- Comprehensively profile small-molecule metabolites in cells, tissues, or biofluids to capture the biochemical “phenotype” in real time.
+- Link upstream omics to downstream phenotype: bridge the gap between genomic/proteomic signals and observable physiology or disease states.
+- Detect pathway-level perturbations (e.g., energy, lipid, or amino-acid metabolism) that underlie exposures, interventions, or pathology.
+- Discover and validate biomarkers for diagnosis, prognosis, or treatment response
+:::
+
+
+## Effect Size Drives Biological Insight
+
+![](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&type=large)
 
 ## Univariate testing may lack power
 
@@ -45,17 +45,8 @@ format:
 
 ::: {.column width="40%"}
 
-\begin{footnotesize}
-
-\begin{itemize}
-
-\item \textbf{Peluso et al. 2021}: “…the complex non-normal structure of metabolic profiles and outcomes may bias the permutation results leading to overly conservative threshold estimates…”
-
-\item \textbf{Henglin et al. 2022}: “We observed that when the number of metabolites was similar to or exceeded the number of study subjects, as is common with nontargeted metabolomics performed in small cohorts, sparse multivariate models demonstrated the most consistent results and the most statistical power.”
-
-\end{itemize}
-
-\end{footnotesize}
+- Peluso et al. 2021: “…the complex non-normal structure of metabolic profiles and outcomes may bias the permutation results leading to overly conservative threshold estimates…”
+- Henglin et al. 2022: “We observed that when the number of metabolites was similar to or exceeded the number of study subjects, as is common with nontargeted metabolomics performed in small cohorts, sparse multivariate models demonstrated the most consistent results and the most statistical power.”
 
 :::
 
@@ -392,7 +383,7 @@ class E,F,G prior;
 library(tidyverse)
 library(ggplot2)
 
-data <- read_csv("../output/benchmark_prior_recovery_results.csv")
+data <- read_csv("../output/benchmark_prior_recovery_results_1.csv")
 
 data_filtered <- data %>%
     filter(Method != "LLM-Informed Hierarchical") %>%

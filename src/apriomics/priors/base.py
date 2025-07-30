@@ -434,7 +434,7 @@ def get_llm_qualitative_predictions(
                             self, condition: str, metabolite: str, context: str
                         ):
                             """Analyze a single metabolite using OpenAI Deep Research models."""
-                            
+
                             system_message = """
 You are an expert metabolomics researcher with deep knowledge of biochemical pathways, disease mechanisms, and metabolic regulation. Your expertise spans diabetes metabolism, renal physiology, and urinary biomarkers.
 
@@ -468,7 +468,7 @@ Rate your certainty about the **direction** of change:
 - **0.1-0.3**: No clear mechanism, pure speculation
 </confidence_calibration>
 
-Provide comprehensive research and analysis, then conclude with JSON:
+Provide your final answer in JSON format only.
 {{
     "prediction": "<increase|decrease|unchanged>",
     "magnitude": "<small|moderate|large>",
@@ -486,47 +486,55 @@ Provide comprehensive research and analysis, then conclude with JSON:
                                             "content": [
                                                 {
                                                     "type": "input_text",
-                                                    "text": system_message
+                                                    "text": system_message,
                                                 }
-                                            ]
+                                            ],
                                         },
                                         {
-                                            "role": "user", 
+                                            "role": "user",
                                             "content": [
                                                 {
                                                     "type": "input_text",
-                                                    "text": user_query
+                                                    "text": user_query,
                                                 }
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     ],
-                                    reasoning={
-                                        "summary": "auto"
-                                    },
-                                    tools=[
-                                        {"type": "web_search_preview"}
-                                    ]
+                                    reasoning={"summary": "auto"},
+                                    tools=[{"type": "web_search_preview"}],
                                 )
-                                
+
                                 # Extract the final message content from responses API
                                 # Find the message item in the output (skip reasoning items)
                                 message_item = None
                                 for item in response.output:
-                                    if hasattr(item, 'type') and item.type == 'message':
+                                    if hasattr(item, "type") and item.type == "message":
                                         message_item = item
                                         break
-                                
-                                if message_item and hasattr(message_item, 'content') and len(message_item.content) > 0:
+
+                                if (
+                                    message_item
+                                    and hasattr(message_item, "content")
+                                    and len(message_item.content) > 0
+                                ):
                                     response_text = message_item.content[0].text
                                 else:
                                     # Fallback - try first item if it has content
-                                    if len(response.output) > 0 and hasattr(response.output[0], 'content'):
-                                        response_text = response.output[0].content[0].text
+                                    if len(response.output) > 0 and hasattr(
+                                        response.output[0], "content"
+                                    ):
+                                        response_text = (
+                                            response.output[0].content[0].text
+                                        )
                                     else:
-                                        response_text = "No message content found in response"
+                                        response_text = (
+                                            "No message content found in response"
+                                        )
 
                                 # Clean up the response to extract JSON
-                                json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+                                json_match = re.search(
+                                    r"\{.*\}", response_text, re.DOTALL
+                                )
                                 if json_match:
                                     json_str = json_match.group(0)
                                 else:
@@ -543,7 +551,9 @@ Provide comprehensive research and analysis, then conclude with JSON:
                                 prediction = response_data.get(
                                     "prediction", "unchanged"
                                 ).lower()
-                                magnitude = response_data.get("magnitude", "small").lower()
+                                magnitude = response_data.get(
+                                    "magnitude", "small"
+                                ).lower()
                                 confidence = float(response_data.get("confidence", 0.5))
                                 reasoning = response_data.get(
                                     "reasoning", "No reasoning provided"
@@ -558,7 +568,9 @@ Provide comprehensive research and analysis, then conclude with JSON:
                                 }
 
                             except Exception as e:
-                                print(f"Error scoring {metabolite}: {e}", file=sys.stderr)
+                                print(
+                                    f"Error scoring {metabolite}: {e}", file=sys.stderr
+                                )
                                 # Default result for failed analysis
                                 return {
                                     "prediction": "unchanged",
@@ -577,7 +589,7 @@ Provide comprehensive research and analysis, then conclude with JSON:
                             self, condition: str, metabolite: str, context: str
                         ):
                             """Analyze a single metabolite using OpenAI models."""
-                            
+
                             prompt = f"""
 <role>
 You are an expert metabolomics researcher with deep knowledge of biochemical pathways, disease mechanisms, and metabolic regulation. Your expertise spans diabetes metabolism, renal physiology, and urinary biomarkers.
@@ -654,7 +666,7 @@ Prediction: increase, magnitude: small, confidence: 0.4
 </examples>
 
 <output_format>
-First provide your step-by-step analysis, then conclude with JSON:
+Provide your final answer in JSON format only.
 {{
     "prediction": "<increase|decrease|unchanged>",
     "magnitude": "<small|moderate|large>",
@@ -674,11 +686,11 @@ First provide your step-by-step analysis, then conclude with JSON:
                             try:
                                 # Handle different parameter names for different models
                                 if self.model_name.startswith(("o1-", "o3-")):
-                                    # o1 models use max_completion_tokens
+                                    # o3 models use max_completion_tokens and do not support temperature
                                     response = self.client.chat.completions.create(
                                         model=self.model_name,
                                         messages=[{"role": "user", "content": prompt}],
-                                        max_completion_tokens=1000,
+                                        max_completion_tokens=2048,
                                     )
                                 else:
                                     # Standard models use max_tokens
@@ -688,11 +700,15 @@ First provide your step-by-step analysis, then conclude with JSON:
                                         temperature=self.temperature,
                                         max_tokens=1000,
                                     )
-                                
-                                response_text = response.choices[0].message.content.strip()
+
+                                response_text = response.choices[
+                                    0
+                                ].message.content.strip()
 
                                 # Clean up the response to extract JSON
-                                json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
+                                json_match = re.search(
+                                    r"\{.*\}", response_text, re.DOTALL
+                                )
                                 if json_match:
                                     json_str = json_match.group(0)
                                 else:
@@ -709,7 +725,9 @@ First provide your step-by-step analysis, then conclude with JSON:
                                 prediction = response_data.get(
                                     "prediction", "unchanged"
                                 ).lower()
-                                magnitude = response_data.get("magnitude", "small").lower()
+                                magnitude = response_data.get(
+                                    "magnitude", "small"
+                                ).lower()
                                 confidence = float(response_data.get("confidence", 0.5))
                                 reasoning = response_data.get(
                                     "reasoning", "No reasoning provided"
@@ -724,7 +742,9 @@ First provide your step-by-step analysis, then conclude with JSON:
                                 }
 
                             except Exception as e:
-                                print(f"Error scoring {metabolite}: {e}", file=sys.stderr)
+                                print(
+                                    f"Error scoring {metabolite}: {e}", file=sys.stderr
+                                )
                                 # Default result for failed analysis
                                 return {
                                     "prediction": "unchanged",
@@ -738,14 +758,16 @@ First provide your step-by-step analysis, then conclude with JSON:
                         llm_scorer = DirectOpenAIDeepResearchScorer(client, model_name)
                     else:
                         llm_scorer = DirectOpenAIScorer(client, model_name, temperature)
-                    
+
                 except Exception as e:
                     raise RuntimeError(
                         f"Could not create OpenAI scorer: {e}. Ensure OPENAI_API_KEY is set and openai is installed."
                     ) from e
             else:
-                raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI models.")
-        
+                raise ValueError(
+                    "OPENAI_API_KEY environment variable is required for OpenAI models."
+                )
+
         elif os.getenv("GOOGLE_API_KEY"):
             try:
                 import google.generativeai as genai
@@ -871,7 +893,7 @@ Prediction: unchanged, magnitude: small, confidence: 0.9
 </examples>
 
 <output_format>
-First provide your step-by-step analysis, then conclude with JSON:
+Provide your final answer in JSON format only.
 {{
     "prediction": "<increase|decrease|unchanged>",
     "magnitude": "<small|moderate|large>",  
@@ -1008,42 +1030,34 @@ def map_qualitative_to_numerical_priors(
     def conservative_directional_prior(prediction, magnitude, confidence):
         """Conservative prior: magnitude drives mean, confidence drives uncertainty."""
         # Magnitude-based effect sizes (conservative scaling)
-        magnitude_effects = {
-            "small": 0.08,
-            "moderate": 0.15, 
-            "large": 0.25
-        }
-        
+        magnitude_effects = {"small": 0.08, "moderate": 0.15, "large": 0.25}
+
         base_effect = magnitude_effects.get(magnitude, 0.10)  # Default to moderate
-        
+
         if prediction == "increase":
             prior_mean = base_effect
         elif prediction == "decrease":
             prior_mean = -base_effect
         else:
             prior_mean = 0.0
-        
+
         # Confidence-based uncertainty (conservative: wider overall)
         if confidence > 0.8:
             prior_sd = 0.5  # High confidence → moderate uncertainty
         elif confidence > 0.6:
-            prior_sd = 0.7  # Medium confidence → higher uncertainty  
+            prior_sd = 0.7  # Medium confidence → higher uncertainty
         else:
             prior_sd = 0.9  # Low confidence → high uncertainty
-            
+
         return prior_mean, prior_sd
 
     def moderate_directional_prior(prediction, magnitude, confidence):
         """Moderate prior: magnitude drives mean, confidence drives uncertainty."""
-        # Magnitude-based effect sizes (moderate scaling) 
-        magnitude_effects = {
-            "small": 0.12,
-            "moderate": 0.22,
-            "large": 0.35
-        }
-        
+        # Magnitude-based effect sizes (moderate scaling)
+        magnitude_effects = {"small": 0.12, "moderate": 0.22, "large": 0.35}
+
         base_effect = magnitude_effects.get(magnitude, 0.15)  # Default to moderate
-        
+
         if prediction == "increase":
             prior_mean = base_effect
         elif prediction == "decrease":
