@@ -27,11 +27,44 @@ from chembridge.databases.hmdb import HMDBClient
 from chembridge import map_metabolites
 import logging
 from tqdm import tqdm
+import argparse
 
 warnings.filterwarnings("ignore")
 # Suppress PyMC verbose output - only show progress bars
 logging.getLogger("pymc").setLevel(logging.WARNING)
 logging.getLogger("pytensor").setLevel(logging.WARNING)
+
+
+def load_mtb_data():
+    """Load MTB dataset (con vs kd comparison)."""
+
+    data_path = "/Users/chiraag/Projects/gwu/lab/apriomics/docs/examples/data/mtb.tsv"
+
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(f"MTB data file not found: {data_path}")
+
+    # Load data
+    mtb_data = pd.read_csv(data_path, sep="\t")
+
+    # Extract sample information
+    sample_names = mtb_data["Sample"]
+    groups = ["con" if "CON" in x else "kd" for x in sample_names]
+    group_labels = pd.Series([0 if g == "con" else 1 for g in groups], name="group")
+
+    # Extract metabolite data
+    metabolite_names = mtb_data.columns.tolist()[1:]  # Exclude 'Sample' column
+    abundance_data = mtb_data.iloc[:, 1:]  # All columns except 'Sample'
+    abundance_data.index = sample_names
+
+    # Create sample metadata DataFrame for consistency
+    sample_data = pd.DataFrame({"Sample Name": sample_names, "group": groups})
+
+    print(
+        f"Loaded MTB dataset: {len(sample_names)} samples, {len(metabolite_names)} metabolites"
+    )
+    print(f"Groups: {group_labels.value_counts().to_dict()}")
+
+    return abundance_data, group_labels, metabolite_names, sample_data
 
 
 def load_mtbls1_data(cache_dir="/Users/chiraag/Projects/gwu/lab/apriomics/output"):
@@ -304,10 +337,10 @@ def fit_llm_informed_hierarchical_model(
     ]
     group_idx = np.array([group_names.index(g) for g in group_assignments])
 
-    # Weak directional guidance for groups - let data determine magnitudes
+    # Moderate directional guidance for groups - let data determine magnitudes
     group_mean_priors = {
-        "increase": 0.1,  # Weak positive bias
-        "decrease": -0.1,  # Weak negative bias
+        "increase": 0.3,  # Moderate positive bias
+        "decrease": -0.3,  # Moderate negative bias
         "unchanged": 0.0,  # Neutral
     }
     group_mean_mus = np.array([group_mean_priors[g] for g in group_names])
@@ -316,19 +349,19 @@ def fit_llm_informed_hierarchical_model(
         # === Part 1: Minimal Hierarchical Structure for LARGE Groups ===
         # Use LLM groups for intelligent initialization, not strong hierarchical shrinkage
 
-        # Very weak group-level structure - mainly for initialization
+        # Moderate group-level structure - balance shrinkage and flexibility
         group_means = pm.Normal(
             "group_means",
             mu=group_mean_mus,
-            sigma=3.0,
-            shape=len(group_names),  # Very wide
+            sigma=2.0,
+            shape=len(group_names),  # Tighter to use LLM information
         )
 
-        # Individual metabolite effects with group-informed initialization but weak pooling
+        # Individual metabolite effects with moderate pooling toward group means
         beta_hierarchical = pm.Normal(
             "beta_hierarchical",
             mu=group_means[group_idx],
-            sigma=2.0,  # Wide individual variation - minimal shrinkage
+            sigma=1.5,  # Moderate shrinkage toward group means
             shape=n_hierarchical,
         )
 
@@ -635,14 +668,16 @@ def load_or_generate_qualitative_predictions(
     model_name="gpt-4o-mini-2024-07-18",
     temperature=1.0,
     cache_dir="/Users/chiraag/Projects/gwu/lab/apriomics/output",
+    dataset="mtbls1",
 ):
     """Load cached qualitative predictions if available, otherwise generate and cache them."""
 
-    # Create cache filename based on model/context/temperature parameters
+    # Create cache filename based on dataset/model/context/temperature parameters
+    dataset_suffix = f"_{dataset}"
     context_suffix = "_with_context" if use_hmdb_context else "_no_context"
     model_suffix = f"_{model_name.replace('-', '_').replace('.', '_')}"
     temp_suffix = f"_temp{temperature:.1f}".replace(".", "")
-    cache_filename = f"qualitative_predictions{context_suffix}{model_suffix}{temp_suffix}_{len(metabolite_names)}metabolites.pkl"
+    cache_filename = f"qualitative_predictions{dataset_suffix}{context_suffix}{model_suffix}{temp_suffix}_{len(metabolite_names)}metabolites.pkl"
     cache_path = os.path.join(cache_dir, cache_filename)
 
     os.makedirs(cache_dir, exist_ok=True)
@@ -677,13 +712,30 @@ def load_or_generate_qualitative_predictions(
         f"Generating fresh qualitative predictions ({'with' if use_hmdb_context else 'without'} HMDB context, {model_name})..."
     )
 
-    condition = """
+    # Select condition based on dataset
+    if dataset == "mtbls1":
+        condition = """
 Study: Type 2 diabetes mellitus vs healthy control
 Context: Type 2 diabetes mellitus is the result of a combination of impaired insulin secretion with reduced insulin sensitivity of target tissues. In this study, NMR-based metabolomic analysis in conjunction with uni- and multivariate statistics was applied to examine the urinary metabolic changes in Human type 2 diabetes mellitus patients compared to the control group. The human population were un medicated diabetic patients who have good daily dietary control over their blood glucose concentrations by following the guidelines on diet issued by the American Diabetes Association.
 Sample type: Urine samples analyzed by NMR spectroscopy
 Patient population: Unmedicated Type 2 diabetes patients with good dietary control vs healthy controls
 Expected changes: Look for metabolites altered in diabetes pathophysiology, particularly those related to glucose metabolism, insulin sensitivity, and urinary excretion patterns.
 """
+    elif dataset == "mtb":
+        condition = """
+Study: End-stage renal disease (ESRD) patients vs healthy controls
+Context: End-stage renal disease (ESRD) is characterized by severe kidney dysfunction requiring renal replacement therapy. ESRD patients exhibit altered gut microbiome composition and function due to uremic toxin accumulation, dietary restrictions, medication use, and altered intestinal environment. This study compares fecal volatile organic compounds between stable haemodialysis patients with ESRD and healthy controls to identify metabolic signatures of kidney disease.
+Sample type: Fecal/stool samples analyzed by headspace solid-phase microextraction gas chromatography-mass spectrometry (GC-MS)
+Patient population: 223 stable haemodialysis patients with ESRD (1-3 times per week) vs 69 healthy volunteers
+Expected changes: Look for volatile organic compounds altered by ESRD pathophysiology, including:
+- Increased uremic toxins and bacterial fermentation products due to altered gut microbiome
+- Changes in microbial metabolism from dysbiosis associated with kidney disease
+- Altered host-microbiome interactions due to uremic environment
+- Compounds related to inflammation and oxidative stress common in ESRD
+- Changes in short-chain fatty acids and other microbial metabolites
+"""
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}")
 
     if use_hmdb_context:
         # Generate HMDB contexts
@@ -830,8 +882,38 @@ def run_benchmark(
     ground_truth_lnfc,
     sample_sizes=[5, 10, 15, 20],
     n_replicates=20,
+    methods=None,
+    dataset="mtbls1",
 ):
-    """Run the main benchmark experiment comparing multiple methods."""
+    """Run the main benchmark experiment comparing multiple methods.
+
+    Args:
+        methods: List of methods to run. If None, runs all methods.
+                Available: ['uninformative_bayesian', 'llm_informed_hierarchical',
+                           'oracle_bayesian', 'flash_no_context_conservative',
+                           'flash_with_context_conservative']
+    """
+
+    # Define all available methods
+    all_methods = [
+        "uninformative_bayesian",
+        "llm_informed_hierarchical",
+        "oracle_bayesian",
+        "flash_no_context_conservative",
+        "flash_with_context_conservative",
+    ]
+
+    # Use all methods if none specified
+    if methods is None:
+        methods = all_methods
+
+    # Validate methods
+    invalid_methods = set(methods) - set(all_methods)
+    if invalid_methods:
+        print(f"Warning: Invalid methods specified: {invalid_methods}")
+        methods = [m for m in methods if m in all_methods]
+
+    print(f"Running benchmark with methods: {methods}")
 
     # Load or generate qualitative predictions once per model/context combo (EFFICIENT!)
     print("--- Loading/generating qualitative predictions ---")
@@ -845,6 +927,7 @@ def run_benchmark(
             use_hmdb_context=False,
             model_name="gemini-2.0-flash",
             temperature=0.0,
+            dataset=dataset,
         ),
         "flash_with_context": load_or_generate_qualitative_predictions(
             metabolite_names,
@@ -852,6 +935,7 @@ def run_benchmark(
             use_hmdb_context=True,
             model_name="gemini-2.0-flash",
             temperature=0.0,
+            dataset=dataset,
         ),
         "pro_no_context": load_or_generate_qualitative_predictions(
             metabolite_names,
@@ -859,6 +943,7 @@ def run_benchmark(
             use_hmdb_context=False,
             model_name="gemini-2.5-pro",
             temperature=0.0,
+            dataset=dataset,
         ),
         # OpenAI models
         "4o_no_context": load_or_generate_qualitative_predictions(
@@ -867,6 +952,7 @@ def run_benchmark(
             use_hmdb_context=False,
             model_name="gpt-4o-2024-08-06",
             temperature=0.0,
+            dataset=dataset,
         ),
         "4o_with_context": load_or_generate_qualitative_predictions(
             metabolite_names,
@@ -874,6 +960,7 @@ def run_benchmark(
             use_hmdb_context=True,
             model_name="gpt-4o-2024-08-06",
             temperature=0.0,
+            dataset=dataset,
         ),
         "o3-mini_no_context": load_or_generate_qualitative_predictions(
             metabolite_names,
@@ -881,6 +968,7 @@ def run_benchmark(
             use_hmdb_context=False,
             model_name="o3-mini-2025-01-31",
             temperature=0.0,
+            dataset=dataset,
         ),
         "o3-mini_with_context": load_or_generate_qualitative_predictions(
             metabolite_names,
@@ -888,6 +976,7 @@ def run_benchmark(
             use_hmdb_context=True,
             model_name="o3-mini-2025-01-31",
             temperature=0.0,
+            dataset=dataset,
         ),
         "o3_no_context": load_or_generate_qualitative_predictions(
             metabolite_names,
@@ -895,6 +984,7 @@ def run_benchmark(
             use_hmdb_context=False,
             model_name="o3-2025-04-16",
             temperature=0.0,
+            dataset=dataset,
         ),
     }
 
@@ -964,100 +1054,105 @@ def run_benchmark(
 
             try:
                 # Uninformative Bayesian baseline (fair comparison)
-                beta_uninformative, mets_uninformative = (
-                    fit_uninformative_bayesian_baseline(
-                        abundance_subsample, group_labels_subsample
+                if "uninformative_bayesian" in methods:
+                    beta_uninformative, mets_uninformative = (
+                        fit_uninformative_bayesian_baseline(
+                            abundance_subsample, group_labels_subsample
+                        )
                     )
-                )
-                df_uninformative = (
-                    pd.DataFrame(
-                        {"metabolite": mets_uninformative, "beta": beta_uninformative}
+                    df_uninformative = (
+                        pd.DataFrame(
+                            {
+                                "metabolite": mets_uninformative,
+                                "beta": beta_uninformative,
+                            }
+                        )
+                        .set_index("metabolite")
+                        .reindex(common_metabolites)
+                        .dropna()
                     )
-                    .set_index("metabolite")
-                    .reindex(common_metabolites)
-                    .dropna()
-                )
-                corr_uninformative, _ = pearsonr(
-                    ground_truth_filtered.reindex(df_uninformative.index),
-                    df_uninformative["beta"],
-                )
-                rmse_uninformative = np.sqrt(
-                    mean_squared_error(
+                    corr_uninformative, _ = pearsonr(
                         ground_truth_filtered.reindex(df_uninformative.index),
                         df_uninformative["beta"],
                     )
-                )
-                results.append(
-                    {
-                        "sample_size": n_per_group,
-                        "replicate": replicate,
-                        "method": "uninformative_bayesian",
-                        "correlation": corr_uninformative,
-                        "rmse": rmse_uninformative,
-                    }
-                )
-
-                # Store detailed results for bias-variance calculation
-                for metabolite in df_uninformative.index:
-                    detailed_results.append(
+                    rmse_uninformative = np.sqrt(
+                        mean_squared_error(
+                            ground_truth_filtered.reindex(df_uninformative.index),
+                            df_uninformative["beta"],
+                        )
+                    )
+                    results.append(
                         {
                             "sample_size": n_per_group,
                             "replicate": replicate,
                             "method": "uninformative_bayesian",
-                            "metabolite": metabolite,
-                            "estimate": df_uninformative.loc[metabolite, "beta"],
-                            "ground_truth": ground_truth_filtered.loc[metabolite],
+                            "correlation": corr_uninformative,
+                            "rmse": rmse_uninformative,
                         }
                     )
 
+                    # Store detailed results for bias-variance calculation
+                    for metabolite in df_uninformative.index:
+                        detailed_results.append(
+                            {
+                                "sample_size": n_per_group,
+                                "replicate": replicate,
+                                "method": "uninformative_bayesian",
+                                "metabolite": metabolite,
+                                "estimate": df_uninformative.loc[metabolite, "beta"],
+                                "ground_truth": ground_truth_filtered.loc[metabolite],
+                            }
+                        )
+
                 # Hierarchical Bayesian with LLM-informed groups
-                beta_hierarchical, mets_hierarchical = (
-                    fit_llm_informed_hierarchical_model(
-                        abundance_subsample,
-                        group_labels_subsample,
-                        priors["flash_no_context_conservative"],
+                if "llm_informed_hierarchical" in methods:
+                    beta_hierarchical, mets_hierarchical = (
+                        fit_llm_informed_hierarchical_model(
+                            abundance_subsample,
+                            group_labels_subsample,
+                            priors["flash_no_context_conservative"],
+                        )
                     )
-                )
-                df_hierarchical = (
-                    pd.DataFrame(
-                        {"metabolite": mets_hierarchical, "beta": beta_hierarchical}
+                    df_hierarchical = (
+                        pd.DataFrame(
+                            {"metabolite": mets_hierarchical, "beta": beta_hierarchical}
+                        )
+                        .set_index("metabolite")
+                        .reindex(common_metabolites)
+                        .dropna()
                     )
-                    .set_index("metabolite")
-                    .reindex(common_metabolites)
-                    .dropna()
-                )
-                corr_hierarchical, _ = pearsonr(
-                    ground_truth_filtered.reindex(df_hierarchical.index),
-                    df_hierarchical["beta"],
-                )
-                rmse_hierarchical = np.sqrt(
-                    mean_squared_error(
+                    corr_hierarchical, _ = pearsonr(
                         ground_truth_filtered.reindex(df_hierarchical.index),
                         df_hierarchical["beta"],
                     )
-                )
-                results.append(
-                    {
-                        "sample_size": n_per_group,
-                        "replicate": replicate,
-                        "method": "llm_informed_hierarchical",
-                        "correlation": corr_hierarchical,
-                        "rmse": rmse_hierarchical,
-                    }
-                )
-
-                # Store detailed results for bias-variance calculation
-                for metabolite in df_hierarchical.index:
-                    detailed_results.append(
+                    rmse_hierarchical = np.sqrt(
+                        mean_squared_error(
+                            ground_truth_filtered.reindex(df_hierarchical.index),
+                            df_hierarchical["beta"],
+                        )
+                    )
+                    results.append(
                         {
                             "sample_size": n_per_group,
                             "replicate": replicate,
                             "method": "llm_informed_hierarchical",
-                            "metabolite": metabolite,
-                            "estimate": df_hierarchical.loc[metabolite, "beta"],
-                            "ground_truth": ground_truth_filtered.loc[metabolite],
+                            "correlation": corr_hierarchical,
+                            "rmse": rmse_hierarchical,
                         }
                     )
+
+                    # Store detailed results for bias-variance calculation
+                    for metabolite in df_hierarchical.index:
+                        detailed_results.append(
+                            {
+                                "sample_size": n_per_group,
+                                "replicate": replicate,
+                                "method": "llm_informed_hierarchical",
+                                "metabolite": metabolite,
+                                "estimate": df_hierarchical.loc[metabolite, "beta"],
+                                "ground_truth": ground_truth_filtered.loc[metabolite],
+                            }
+                        )
 
                 # Oracle Bayesian (perfect knowledge upper bound)
                 beta_oracle, mets_oracle = fit_oracle_bayesian_baseline(
@@ -1403,15 +1498,38 @@ def create_benchmark_visualizations(results_df, ground_truth_lnfc):
     plt.show()
 
 
-def main():
-    """Main benchmark execution."""
+def main(
+    methods=None, output_suffix="", sample_sizes=None, n_replicates=10, dataset="mtbls1"
+):
+    """Main benchmark execution.
+
+    Args:
+        methods: List of methods to run. If None, runs all methods.
+                Available: ['uninformative_bayesian', 'llm_informed_hierarchical',
+                           'oracle_bayesian', 'flash_no_context_conservative',
+                           'flash_with_context_conservative']
+        output_suffix: Suffix to add to output filenames
+        sample_sizes: List of sample sizes to test
+        n_replicates: Number of replicates per sample size
+        dataset: Dataset to use ('mtbls1' or 'mtb')
+    """
 
     if not os.getenv("GOOGLE_API_KEY"):
         print("GOOGLE_API_KEY not set! This benchmark requires LLM access.")
         return
 
-    print("Loading MTBLS1 dataset...")
-    abundance_data, group_labels, metabolite_names, sample_data = load_mtbls1_data()
+    if sample_sizes is None:
+        sample_sizes = [5, 10, 15, 20]
+
+    # Load dataset
+    if dataset == "mtbls1":
+        print("Loading MTBLS1 dataset...")
+        abundance_data, group_labels, metabolite_names, sample_data = load_mtbls1_data()
+    elif dataset == "mtb":
+        print("Loading MTB dataset...")
+        abundance_data, group_labels, metabolite_names, sample_data = load_mtb_data()
+    else:
+        raise ValueError(f"Unknown dataset: {dataset}. Available: 'mtbls1', 'mtb'")
 
     print(f"Using {len(metabolite_names)} metabolites for benchmark")
 
@@ -1430,8 +1548,10 @@ def main():
         metabolite_names,
         sample_data,
         ground_truth_lnfc,
-        sample_sizes=[5, 10, 15, 20],
-        n_replicates=10,
+        sample_sizes=sample_sizes,
+        n_replicates=n_replicates,
+        methods=methods,
+        dataset=dataset,
     )
 
     print("Analyzing results...")
@@ -1455,14 +1575,6 @@ def main():
     create_benchmark_visualizations(results_df, ground_truth_lnfc)
 
     # Save results
-    output_dir = "/Users/chiraag/Projects/gwu/lab/apriomics/output"
-    os.makedirs(output_dir, exist_ok=True)
-
-    results_df.to_csv(f"{output_dir}/benchmark_prior_recovery_results.csv", index=False)
-    summary.to_csv(f"{output_dir}/benchmark_prior_recovery_summary.csv")
-    bias_variance_df.to_csv(
-        f"{output_dir}/benchmark_bias_variance_results.csv", index=False
-    )
 
     # Display bias-variance summary
     print("\n" + "=" * 80)
@@ -1500,16 +1612,77 @@ def main():
                 f"{row['Method']:35s}: Bias={row['overall_bias']:.4f}, Var={row['overall_variance']:.4f}, MSE={row['overall_mse']:.4f}"
             )
 
+    # Save results with optional suffix
+    output_dir = "/Users/chiraag/Projects/gwu/lab/apriomics/output"
+    os.makedirs(output_dir, exist_ok=True)
+
+    suffix = output_suffix if output_suffix else ""
+    results_filename = f"benchmark_prior_recovery_results{suffix}.csv"
+    summary_filename = f"benchmark_prior_recovery_summary{suffix}.csv"
+    bias_variance_filename = f"benchmark_bias_variance_results{suffix}.csv"
+
+    results_df.to_csv(f"{output_dir}/{results_filename}", index=False)
+    summary.to_csv(f"{output_dir}/{summary_filename}")
+    bias_variance_df.to_csv(f"{output_dir}/{bias_variance_filename}", index=False)
+
     print(f"\nResults saved to {output_dir}/")
-    print("- benchmark_prior_recovery_results.csv")
-    print("- benchmark_prior_recovery_summary.csv")
-    print("- benchmark_bias_variance_results.csv")
+    print(f"- {results_filename}")
+    print(f"- {summary_filename}")
+    print(f"- {bias_variance_filename}")
     print("Benchmark complete!")
 
     return results_df, summary
 
 
 if __name__ == "__main__":
-    result = main()
+    parser = argparse.ArgumentParser(description="Benchmark prior recovery methods")
+    parser.add_argument(
+        "--methods",
+        nargs="+",
+        choices=[
+            "uninformative_bayesian",
+            "llm_informed_hierarchical",
+            "oracle_bayesian",
+            "flash_no_context_conservative",
+            "flash_with_context_conservative",
+        ],
+        help="Methods to run (default: all methods)",
+    )
+    parser.add_argument(
+        "--output-suffix",
+        type=str,
+        default="",
+        help='Suffix to add to output filenames (e.g., "_hierarchical_test")',
+    )
+    parser.add_argument(
+        "--sample-sizes",
+        nargs="+",
+        type=int,
+        default=[5, 10, 15, 20],
+        help="Sample sizes to test (default: 5 10 15 20)",
+    )
+    parser.add_argument(
+        "--n-replicates",
+        type=int,
+        default=10,
+        help="Number of replicates per sample size (default: 10)",
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        choices=["mtbls1", "mtb"],
+        default="mtbls1",
+        help="Dataset to use (default: mtbls1)",
+    )
+
+    args = parser.parse_args()
+
+    result = main(
+        methods=args.methods,
+        output_suffix=args.output_suffix,
+        sample_sizes=args.sample_sizes,
+        n_replicates=args.n_replicates,
+        dataset=args.dataset,
+    )
     if result is not None:
         results_df, summary = result

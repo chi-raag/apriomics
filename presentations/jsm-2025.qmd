@@ -14,6 +14,12 @@ format:
         theme: gw.scss
         html-math-method: mathjax
         slide-number: true
+        title-slide-attributes:
+            data-background-image: https://dtais.engineering.gwu.edu/sites/g/files/zaxdzs4921/files/header_block/DTAIS%20logo_1c.png, https://rahnavard.org/media/logo_hu6032439a0cdf518af9f282061b335860_10275_0x70_resize_lanczos_3.png
+            data-background-size: 210px, 75px
+            data-background-position: 78% 99%, 89% 99%
+            width: 1600
+            height: 900
 mermaid-format: svg
 ---
 
@@ -33,13 +39,23 @@ mermaid-format: svg
 
 ![](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&type=large)
 
+::: {.notes}
+
+- Magnitude > mere significance: With thousands of metabolites tested, p-values alone flag almost everything—effect sizes (fold-change, standardized mean difference) reveal what’s practically important.
+- Controls multiple-testing inflation: Ranking by effect size before FDR adjustment helps guard against spurious “top hits.”
+- Guides power calculations and study design: Estimated effect sizes feed back into sample-size planning for follow-up experiments or clinical validation.
+- Enables pathway-level modeling: Effect sizes aggregate naturally (e.g., via gene-set enrichment or mixed models) to quantify pathway shifts, supporting causal inference.
+- Facilitates reproducibility & meta-analysis: Confidence intervals around effect sizes allow results to be combined across labs, instruments, and platforms—key for harmonizing heterogeneous metabolomics studies.
+:::
+
 ## Traditional testing lacks power
 
 :::: {.columns}
 
 ::: {.column width="70%"}
 
-![](images/univariate_simulation.png)
+![Henglin, M. et al. (2022), “Quantitative Comparison of Statistical Methods for Analyzing Human Metabolomics Data,” Metabolites, 12, 519. 
+](images/univariate_simulation.png)
 
 :::
 
@@ -59,22 +75,27 @@ mermaid-format: svg
 
 ::::
 
+::: {.notes}
+Peluso et al. 2021: “…the complex non-normal structure of metabolic profiles and outcomes may bias the permutation results leading to overly conservative threshold estimates…”
+
+"Henglin et al. 2022 “We observed that when the number of metabolites was similar to or exceeded the number of study subjects, as is common with nontargeted metabolomics performed in small cohorts, sparse multivariate models demonstrated the most consistent results and the most statistical power.”"
+:::
+
 ## Prior work
 
-![Capstick, A., Krishnan, R. G., and Barnaghi, P. (2025), [“AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling,”](https://doi.org/10.48550/arXiv.2411.17284.) arXiv.](https://arxiv.org/html/2411.17284v5/x1.png)
+![Zhang, E. et al. (2025), [“LLM-Lasso: A Robust Framework for Domain-Informed Feature Selection and Regularization,”](https://doi.org/10.48550/arXiv.2502.10648) arXiv.](https://arxiv.org/html/2502.10648v2/x1.png){width="80%" fig-align="center"}
 
-![Zhang, E., Goto, R., Sagan, N., Mutter, J., Phillips, N., Alizadeh, A., Lee, K., Blanchet, J., Pilanci, M., and Tibshirani, R. (2025), [“LLM-Lasso: A Robust Framework for Domain-Informed Feature Selection and Regularization,”](https://doi.org/10.48550/arXiv.2502.10648) arXiv.](https://arxiv.org/html/2502.10648v2/x1.png){width="80%" fig-align="center"}
+![Capstick, A. et al. (2025), [“AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling,”](https://doi.org/10.48550/arXiv.2411.17284.) arXiv.](https://arxiv.org/html/2411.17284v5/x1.png)
 
 ## Prior elicitation framework overview
 
-```{mermaid}
-graph TD;
-    A[LLM] --> B[Metabolite + Study Context]
-    B --> C[LLM Prior Elicitation]
-    C --> D[Bayesian Model]
-    D --> E[Posterior Inference]
-    E --> F[Biological Insights]
-```
+![](./images/overview.png)
+
+- **Metabolite Context Enrichment**: HMDB database integration for biological context (pathways, functions, disease associations)
+- **Multi-Model LLM Support**: OpenAI (GPT-4o, O3), Google (Gemini 2.0/2.5), with caching and fallback mechanisms
+- **Qualitative-to-Numerical Mapping**: Conservative/moderate strength mappings with magnitude-driven effect sizes and confidence-calibrated uncertainties
+- **Hierarchical Bayesian Modeling**: LLM-informed metabolite grouping with intelligent pooling and minimal shrinkage
+- **Benchmark Framework**: Monte Carlo subsampling against ground truth with bias-variance decomposition
 
 ## LLM prior elicitation process
 
@@ -127,7 +148,7 @@ $f(c_j) \in \{0.3, 0.5, 0.7\}$ for $\{\text{high, med, low}\}$ confidence
 
 **Weakly Informative Prior**: $\beta_j \sim \mathcal{N}(0, 2)$
 
-## LLM-Informed Hierarchical Prior
+## LLM-Informed Hierarchical Prior {visibility="hidden"}
 
 Group metabolites by LLM predictions and use intelligent pooling:
 
@@ -155,11 +176,11 @@ All Bayesian models use the same log-link GLM structure with different prior spe
 \begin{align}
 y_{ij} &\sim \mathcal{N}(\mu_{ij}, \sigma_j^2) \\
 \log(\mu_{ij}) &= \alpha_j + \beta_j \cdot x_i \\
-\alpha_j &\sim \mathcal{N}(\log(\bar{y}_j), 1.0) \\
+\alpha_j &\sim \mathcal{N}(\log(\bar{y}_j + \epsilon), 1.0) \\
 \sigma_j &\sim \text{HalfNormal}(0.5)
 \end{align}
 
-where $y_{ij}$ is abundance for sample $i$ and metabolite $j$, $x_i \in \{0,1\}$ is group indicator, and $\beta_j$ represents the natural log fold change (lnFC) for metabolite $j$.
+where $y_{ij}$ is abundance for sample $i$ and metabolite $j$, $x_i \in \{0,1\}$ is group indicator, $\beta_j$ represents the natural log fold change (lnFC) for metabolite $j$, and $\epsilon$ is a small constant to avoid log(0).
 
 ## Simulation Study
 
@@ -192,8 +213,6 @@ class E,F,G prior;
 **Ground Truth**: Empirical natural log fold change (lnFC) from full MTBLS1 dataset^[Salek, R. M., Maguire, M. L., Bentley, E., Rubtsov, D. V., Hough, T., Cheeseman, M., Nunez, D., Sweatman, B. C., Haselden, J. N., Cox, R. D., Connor, S. C., and Griffin, J. L. (2007), [“A metabolomic comparison of urinary changes in type 2 diabetes in mouse, rat, and human,”](https://doi.org/10.1152/physiolgenomics.00194.2006.) Physiological Genomics, American Physiological Society.] (n=132)
 
 $$\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)$$
-
-
 
 ## LLM-informed priors improve recovery
 
@@ -370,5 +389,7 @@ data_bias_var |>
 
 - **LLM Prior Elicitation Works**: Automated biological knowledge extraction via LLMs produces informative priors for Bayesian metabolomics analysis.
 - **Mapping Strategy Matters**: Magnitude-driven effect sizes and confidence-calibrated uncertainties are crucial for translating qualitative LLM insights into effective numerical priors.
+- **Added Context May Not Matter**: Including biological context from the HMDB in LLM prompts did not significantly improve prior performance in this study.
+- **Performance is Model Agnostic**: Different LLMs (OpenAI, Google) yielded similar results, indicating robustness across models.
 - **Practical Impact**: Method particularly valuable for small sample studies (n=5-20) where traditional statistical approaches struggle with high-dimensional metabolomics data.
 - **Future Directions**: Integration of other databases, alongside more sophisticated mapping approaches and historical data.
