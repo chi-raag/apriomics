@@ -920,32 +920,6 @@ def run_benchmark(
 
     # Generate qualitative predictions only once per model/context combo
     qualitative_predictions = {
-        # Gemini Flash 2.0
-        "flash_no_context": load_or_generate_qualitative_predictions(
-            metabolite_names,
-            sample_data,
-            use_hmdb_context=False,
-            model_name="gemini-2.0-flash",
-            temperature=0.0,
-            dataset=dataset,
-        ),
-        "flash_with_context": load_or_generate_qualitative_predictions(
-            metabolite_names,
-            sample_data,
-            use_hmdb_context=True,
-            model_name="gemini-2.0-flash",
-            temperature=0.0,
-            dataset=dataset,
-        ),
-        "pro_no_context": load_or_generate_qualitative_predictions(
-            metabolite_names,
-            sample_data,
-            use_hmdb_context=False,
-            model_name="gemini-2.5-pro",
-            temperature=0.0,
-            dataset=dataset,
-        ),
-        # OpenAI models
         "4o_no_context": load_or_generate_qualitative_predictions(
             metabolite_names,
             sample_data,
@@ -997,17 +971,6 @@ def run_benchmark(
     # Apply conservative strength mappings to all qualitative predictions
     print("--- Applying conservative strength mappings to qualitative predictions ---")
     priors = {
-        # Gemini Flash 2.0
-        "flash_no_context_conservative": apply_prior_strength_mapping(
-            qualitative_predictions["flash_no_context"], "conservative"
-        ),
-        "flash_with_context_conservative": apply_prior_strength_mapping(
-            qualitative_predictions["flash_with_context"], "conservative"
-        ),
-        "pro_no_context_conservative": apply_prior_strength_mapping(
-            qualitative_predictions["pro_no_context"], "conservative"
-        ),
-        # OpenAI models
         "4o_no_context_conservative": apply_prior_strength_mapping(
             qualitative_predictions["4o_no_context"], "conservative"
         ),
@@ -1198,18 +1161,6 @@ def run_benchmark(
 
                 # Test streamlined LLM methods with conservative mapping
                 llm_methods = [
-                    (
-                        "flash_no_context_conservative",
-                        "Flash 2.0 (No Context, Conservative)",
-                    ),
-                    (
-                        "flash_with_context_conservative",
-                        "Flash 2.0 (With Context, Conservative)",
-                    ),
-                    (
-                        "pro_no_context_conservative",
-                        "Pro 2.5 (No Context, Conservative)",
-                    ),
                     ("4o_no_context_conservative", "GPT-4o (No Context, Conservative)"),
                     (
                         "4o_with_context_conservative",
@@ -1460,9 +1411,6 @@ def create_benchmark_visualizations(results_df, ground_truth_lnfc):
         "uninformative_bayesian": "Uninformative Bayesian",
         "llm_informed_hierarchical": "LLM-Informed Hierarchical",
         "oracle_bayesian": "Oracle Bayesian (Upper Bound)",
-        "flash_no_context_conservative": "Flash 2.0 (No Context, Conservative)",
-        "flash_with_context_conservative": "Flash 2.0 (With Context, Conservative)",
-        "pro_no_context_conservative": "Pro 2.5 (No Context, Conservative)",
         "4o_no_context_conservative": "GPT-4o (No Context, Conservative)",
         "4o_with_context_conservative": "GPT-4o (With Context, Conservative)",
         "o3-mini_no_context_conservative": "O3 Mini (No Context, Conservative)",
@@ -1586,9 +1534,6 @@ def main(
         "uninformative_bayesian": "Uninformative Bayesian",
         "llm_informed_hierarchical": "LLM-Informed Hierarchical",
         "oracle_bayesian": "Oracle Bayesian (Upper Bound)",
-        "flash_no_context_conservative": "Flash 2.0 (No Context, Conservative)",
-        "flash_with_context_conservative": "Flash 2.0 (With Context, Conservative)",
-        "pro_no_context_conservative": "Pro 2.5 (No Context, Conservative)",
         "4o_no_context_conservative": "GPT-4o (No Context, Conservative)",
         "4o_with_context_conservative": "GPT-4o (With Context, Conservative)",
         "o3-mini_no_context_conservative": "O3 Mini (No Context, Conservative)",
