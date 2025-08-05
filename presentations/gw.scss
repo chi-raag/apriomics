@@ -1,9 +1,9 @@
 /*-- scss:defaults --*/
 
 // Override theme settings
-$font-family-sans-serif: "Avenir Next LT Pro", sans-serif !default;
+$font-family-sans-serif: "Mona Sans", sans-serif !default;
 $body-color: #000 !default;
-$presentation-heading-font: "Avenir Next LT Pro", sans-serif !default;
+$presentation-heading-font: "Hubot Sans", sans-serif !default;
 $presentation-heading-color: #033C5A !default;
 $presentation-heading-text-shadow: none !default;
 $presentation-heading-text-transform: none !default;
@@ -12,7 +12,7 @@ $link-color: #00008b !default;
 $selection-bg: rgba(0, 0, 0, 0.99) !default;
 
 
-$presentation-font-size-root: 25px !default;
+$presentation-font-size-root: 24pt !default;
 
 $overlayElementBgColor: 0, 0, 0 !default;
 $overlayElementFgColor: 240, 240, 240 !default;

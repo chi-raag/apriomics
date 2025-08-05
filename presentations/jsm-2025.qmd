@@ -17,9 +17,10 @@ format:
         title-slide-attributes:
             data-background-image: https://dtais.engineering.gwu.edu/sites/g/files/zaxdzs4921/files/header_block/DTAIS%20logo_1c.png, https://rahnavard.org/media/logo_hu6032439a0cdf518af9f282061b335860_10275_0x70_resize_lanczos_3.png
             data-background-size: 210px, 75px
-            data-background-position: 78% 99%, 89% 99%
-            width: 1600
-            height: 900
+            data-background-position: 87% 99%, 93% 99%
+        width: 1600
+        height: 900
+        pdf-separate-fragments: true
 mermaid-format: svg
 ---
 
@@ -37,16 +38,18 @@ mermaid-format: svg
 
 ## Effect size drives biological insight
 
+:::: {.columns}
+
+::: {.column width="70%"}
 ![](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&type=large)
+:::
 
-::: {.notes}
-
-- Magnitude > mere significance: With thousands of metabolites tested, p-values alone flag almost everything—effect sizes (fold-change, standardized mean difference) reveal what’s practically important.
-- Controls multiple-testing inflation: Ranking by effect size before FDR adjustment helps guard against spurious “top hits.”
-- Guides power calculations and study design: Estimated effect sizes feed back into sample-size planning for follow-up experiments or clinical validation.
+::: {.column width="30%" .incremental}
 - Enables pathway-level modeling: Effect sizes aggregate naturally (e.g., via gene-set enrichment or mixed models) to quantify pathway shifts, supporting causal inference.
 - Facilitates reproducibility & meta-analysis: Confidence intervals around effect sizes allow results to be combined across labs, instruments, and platforms—key for harmonizing heterogeneous metabolomics studies.
 :::
+
+::::
 
 ## Traditional testing lacks power
 
@@ -66,53 +69,60 @@ mermaid-format: svg
 ![](https://pubchem.ncbi.nlm.nih.gov/pcfe/logo/PubChem_logo.png){width="60%"}
 
 :::{.fragment}
-- High dimensionality ($p >> n$)
-- Can lean on assumptions of sparsity
-- Prior knowledge from previous studies, literature, and curated databases
+
+**Can we use LLMs as "experts" to inform priors in Bayesian metabolomics models?**
+
 :::
 
 :::
 
 ::::
 
-::: {.notes}
-Peluso et al. 2021: “…the complex non-normal structure of metabolic profiles and outcomes may bias the permutation results leading to overly conservative threshold estimates…”
-
-"Henglin et al. 2022 “We observed that when the number of metabolites was similar to or exceeded the number of study subjects, as is common with nontargeted metabolomics performed in small cohorts, sparse multivariate models demonstrated the most consistent results and the most statistical power.”"
-:::
-
 ## Prior work
 
+:::{.fragment}
 ![Zhang, E. et al. (2025), [“LLM-Lasso: A Robust Framework for Domain-Informed Feature Selection and Regularization,”](https://doi.org/10.48550/arXiv.2502.10648) arXiv.](https://arxiv.org/html/2502.10648v2/x1.png){width="80%" fig-align="center"}
+:::
 
-![Capstick, A. et al. (2025), [“AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling,”](https://doi.org/10.48550/arXiv.2411.17284.) arXiv.](https://arxiv.org/html/2411.17284v5/x1.png)
+:::{.fragment}
+![Capstick, A. et al. (2025), [“AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling,”](https://doi.org/10.48550/arXiv.2411.17284.) arXiv.](https://arxiv.org/html/2411.17284v5/x1.png){width="80%"}
+:::
 
 ## Prior elicitation framework overview
 
-![](./images/overview.png)
+![](./images/overview.png){width="100%"}
 
-- **Metabolite Context Enrichment**: HMDB database integration for biological context (pathways, functions, disease associations)
-- **Multi-Model LLM Support**: OpenAI (GPT-4o, O3), Google (Gemini 2.0/2.5), with caching and fallback mechanisms
-- **Qualitative-to-Numerical Mapping**: Conservative/moderate strength mappings with magnitude-driven effect sizes and confidence-calibrated uncertainties
-- **Hierarchical Bayesian Modeling**: LLM-informed metabolite grouping with intelligent pooling and minimal shrinkage
-- **Benchmark Framework**: Monte Carlo subsampling against ground truth with bias-variance decomposition
+::: {.incremental}
+
+- Do LLMs require extra knowledge from databases or literature?
+- How do different prompt formulations affect effect size estimation?
+- Can this process be automated for high-throughput metabolomics studies?
+
+:::
+
 
 ## LLM prior elicitation process
 
+::: {.fragment}
 **Step 1**: LLM analyzes metabolite + study context
 $$\text{LLM}(\text{metabolite}, \text{condition}) \rightarrow \{d_j, m_j, c_j, r_j\}$$
 
 where $d_j \in \{\text{increase, decrease, unchanged}\}$ is predicted direction, $m_j \in \{\text{small, moderate, large}\}$ is predicted magnitude, $c_j \in \left(0, 1\right)$ is confidence level, and $r_j$ is a string representing the rationale.
+:::
 
+::: {.fragment}
 **Step 2**: Map qualitative predictions to numerical priors
 
 \begin{align*}
 \mu_j^{\text{LLM}} &= f_{\mu}\left(m_j, d_j\right) \\
 \sigma_j^{\text{LLM}} &= f_{\sigma}\left(c_j\right)
 \end{align*}
+:::
 
+::: {.fragment}
 **Step 3**: Use as informative priors in Bayesian model
 $\beta_j \sim \mathcal{N}(\mu_j^{\text{LLM}}, \sigma_j^{\text{LLM}})$
+:::
 
 ## Priors
 
@@ -187,12 +197,13 @@ where $y_{ij}$ is abundance for sample $i$ and metabolite $j$, $x_i \in \{0,1\}$
 ### Empirical Monte-Carlo Subsampling
 
 ```{mermaid} 
-%%| fig-height: 3
+%%| fig-height: 5
+%%| fig-width: 14
 ---
 config:
     theme: 'base'
     themeVariables:
-        fontFamily: Avenir Next LT Pro
+        fontFamily: Mona Sans
         primaryColor: '#F8E08E'
         secondaryColor: '#0190DB'
 ---
@@ -203,23 +214,59 @@ graph TD;
     E[Weakly Informative Priors] --> D
     F[LLM Priors] --> D
     G[HMDB + LLM Priors] --> D
-    D --> H[Compare model estimators]
+    D --> H[Compare estimators]
     C --> H
 
 classDef prior fill:white;
 class E,F,G prior;
 ```
 
-**Ground Truth**: Empirical natural log fold change (lnFC) from full MTBLS1 dataset^[Salek, R. M., Maguire, M. L., Bentley, E., Rubtsov, D. V., Hough, T., Cheeseman, M., Nunez, D., Sweatman, B. C., Haselden, J. N., Cox, R. D., Connor, S. C., and Griffin, J. L. (2007), [“A metabolomic comparison of urinary changes in type 2 diabetes in mouse, rat, and human,”](https://doi.org/10.1152/physiolgenomics.00194.2006.) Physiological Genomics, American Physiological Society.] (n=132)
+**Ground Truth**: Empirical natural log fold change (lnFC) from full MTBLS1 dataset^[Salek, R. M. et al. (2007), [“A metabolomic comparison of urinary changes in type 2 diabetes in mouse, rat, and human,”](https://doi.org/10.1152/physiolgenomics.00194.2006.) Physiological Genomics, American Physiological Society.]: $\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)$ (n=132)
 
-$$\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)$$
+# Results
+
+## Examples of LLM Output
+
+:::: {layout="[30, -30, 10, -20]"}
+
+**Acetoacetate**
+
+![](https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/structures/344/649/4f016901-2115-4196-8191-7aeee6a5f0f3/640/4f016901-2115-4196-8191-7aeee6a5f0f3.png)
+
+::::
+
+:::: {.columns}
+
+::: {.column width="50%"}
+WITH HMDB Context:
+
+- Prediction: increase
+- Magnitude: moderate
+- Confidence: 0.85
+- Reasoning: "In type 2 diabetes, insulin resistance diminishes the hormone's antilipolytic effect, leading to increased free fatty acid release and subsequent hepatic ketogenesis. This process boosts the production of ketone bodies including acetoacetate. Although the patients have good dietary control and are not in full ketoacidosis, the metabolic imbalance typical of T2DM still promotes a moderate increase in urinary acetoacetate relative to healthy controls."
+:::
+
+::: {.column width="50%"}
+WITHOUT HMDB Context:
+
+- Prediction: increase
+- Magnitude: moderate
+- Confidence: 0.8
+- Reasoning: "Acetoacetate is a ketone body produced during fatty acid oxidation. In type 2 diabetes, even with good dietary control, insulin resistance promotes increased lipolysis which mildly enhances ketogenesis. Although these patients are not in overt ketoacidosis, the metabolic shift can lead to a moderate increase in urinary acetoacetate."
+:::
+
+::::
 
 ## LLM-informed priors improve recovery
 
 ```{r}
-#| fig-width: 15
+#| fig-width: 16
+#| fig-height: 5
+
 library(tidyverse)
+library(ggnewscale)
 library(ggplot2)
+library(gghighlight)
 
 data <- read_csv("../output/benchmark_prior_recovery_results.csv")
 
@@ -264,7 +311,7 @@ label_data <- data_filtered %>%
     mutate(y_pos = max(max_rmse) * 1) %>%
     ungroup()
 
-data_filtered %>%
+p <- data_filtered %>%
     mutate(Method = factor(Method, levels = c(
         "Uninformative Bayesian",
         "Flash 2.0 (No Context, Conservative)", "Flash 2.0 (With Context, Conservative)",
@@ -275,7 +322,10 @@ data_filtered %>%
         "Oracle Bayesian"
     ))) %>%
     ggplot(aes(x = Method, y = rmse, fill = llm)) +
-    geom_boxplot(outliers = FALSE) +
+    geom_boxplot(outliers = FALSE)
+
+p +
+    gghighlight(llm == "Uninformative", unhighlighted_params = list(fill = NULL, alpha = 0.3), keep_scales = TRUE, calculate_per_facet = TRUE) +
     geom_text(
         inherit.aes = FALSE,
         data = label_data,
@@ -295,13 +345,109 @@ data_filtered %>%
             override.aes = list(label = c("C", "N"), size = 4)
         )
     ) +
+    geom_point(aes(x = Method, y = rmse, fill = llm), shape = 22, alpha = .5, show.legend = FALSE) +
     facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
-    theme_bw(base_size = 20, base_family = "Avenir Next LT Pro") +
+    theme_bw(base_size = 20, base_family = "Mona Sans") +
     theme(
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
-        axis.line.x = element_blank()
+        axis.line.x = element_blank(),
+        grid.panel = element_blank()
+    ) +
+    labs(
+        y     = "Root Mean Squared Error (RMSE)",
+        fill  = "LLM Method",
+        color = "Context"
+    )
+
+```
+
+$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}$$
+
+where $\hat{\beta}_j$ is the estimated effect size and $\beta_j^{\text{true}}$ is the ground truth lnFC for metabolite $m_j$.
+
+## LLM-informed priors improve recovery
+
+```{r}
+#| fig-width: 16
+#| fig-height: 5
+p +
+    gghighlight(llm == "Oracle", unhighlighted_params = list(fill = NULL, alpha = 0.3), keep_scales = TRUE, calculate_per_facet = TRUE) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data,
+        aes(x = Method, y = y_pos, label = short_ctx, color = context),
+        size = 3,
+        show.legend = TRUE
+    ) +
+    scale_color_manual(
+        name = "Context",
+        values = c(
+            "Context" = "black",
+            "No Context" = "black"
+        ),
+        breaks = c("Context", "No Context"),
+        labels = c("With Context", "No Context"),
+        guide = guide_legend(
+            override.aes = list(label = c("C", "N"), size = 4)
+        )
+    ) +
+    geom_point(aes(x = Method, y = rmse, fill = llm), shape = 22, alpha = .5, show.legend = FALSE) +
+    facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
+    theme_bw(base_size = 20, base_family = "Mona Sans") +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        grid.panel = element_blank()
+    ) +
+    labs(
+        y     = "Root Mean Squared Error (RMSE)",
+        fill  = "LLM Method",
+        color = "Context"
+    )
+```
+
+$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}$$
+
+where $\hat{\beta}_j$ is the estimated effect size and $\beta_j^{\text{true}}$ is the ground truth lnFC for metabolite $m_j$.
+
+## LLM-informed priors improve recovery
+
+```{r}
+#| fig-width: 16
+#| fig-height: 5
+p +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data,
+        aes(x = Method, y = y_pos, label = short_ctx, color = context),
+        size = 3,
+        show.legend = TRUE
+    ) +
+    scale_color_manual(
+        name = "Context",
+        values = c(
+            "Context" = "black",
+            "No Context" = "black"
+        ),
+        breaks = c("Context", "No Context"),
+        labels = c("With Context", "No Context"),
+        guide = guide_legend(
+            override.aes = list(label = c("C", "N"), size = 4)
+        )
+    ) +
+    geom_point(aes(x = Method, y = rmse, fill = llm), shape = 22, alpha = .5, show.legend = FALSE) +
+    facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
+    theme_bw(base_size = 20, base_family = "Mona Sans") +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        grid.panel = element_blank()
     ) +
     labs(
         y     = "Root Mean Squared Error (RMSE)",
@@ -382,14 +528,15 @@ data_bias_var |>
         x = "Overall Bias",
         y = "Overall Variance"
     ) +
-    theme_bw(base_family = "Avenir Next LT Pro")
+    theme_bw(base_family = "Mona Sans")
 ```
 
 ## Summary
 
-- **LLM Prior Elicitation Works**: Automated biological knowledge extraction via LLMs produces informative priors for Bayesian metabolomics analysis.
-- **Mapping Strategy Matters**: Magnitude-driven effect sizes and confidence-calibrated uncertainties are crucial for translating qualitative LLM insights into effective numerical priors.
-- **Added Context May Not Matter**: Including biological context from the HMDB in LLM prompts did not significantly improve prior performance in this study.
-- **Performance is Model Agnostic**: Different LLMs (OpenAI, Google) yielded similar results, indicating robustness across models.
-- **Practical Impact**: Method particularly valuable for small sample studies (n=5-20) where traditional statistical approaches struggle with high-dimensional metabolomics data.
-- **Future Directions**: Integration of other databases, alongside more sophisticated mapping approaches and historical data.
+- **LLM Prior Elicitation Works**
+- **Mapping Strategy Matters**
+- **Added Context May Not Matter**
+- **Performance is Model Agnostic**
+- **Larger Gains at Small Sample Sizes**
+
+## {background-image="images/ack.png" background-size="contain"}

@@ -1,18 +1,21 @@
 library(tidyverse)
 library(ggplot2)
 
-data <- read_csv("./output/benchmark_prior_recovery_results.csv")
+data <- read_csv("output/benchmark_prior_recovery_results.csv")
 
 data_filtered <- data %>%
     filter(Method != "LLM-Informed Hierarchical") %>%
     mutate(
         llm = case_when(
             str_detect(Method, "Flash 2.0") ~ "Flash 2.0",
-            str_detect(Method, "GPT-4.1") ~ "GPT-4.1",
-            str_detect(Method, "O4-Mini") ~ "O4-Mini",
+            str_detect(Method, "Pro") ~ "Pro 2.5",
+            str_detect(Method, "GPT-4o") ~ "GPT-4o",
+            str_detect(Method, "O3 Mini") ~ "O3 Mini",
             str_detect(Method, "Uninformative") ~ "Uninformative",
-            str_detect(Method, "Oracle") ~ "Oracle"
+            str_detect(Method, "Oracle") ~ "Oracle",
+            TRUE ~ "O3"
         ),
+        llm = factor(llm, levels = c("Uninformative", "Flash 2.0", "GPT-4o", "O3", "O3 Mini", "Pro 2.5", "Oracle")),
         context = case_when(
             str_detect(Method, "With Context") ~ "Context",
             str_detect(Method, "No Context") ~ "No Context",
@@ -42,6 +45,15 @@ label_data <- data_filtered %>%
     ungroup()
 
 data_filtered %>%
+    mutate(Method = factor(Method, levels = c(
+        "Uninformative Bayesian",
+        "Flash 2.0 (No Context, Conservative)", "Flash 2.0 (With Context, Conservative)",
+        "GPT-4o (No Context, Conservative)", "GPT-4o (With Context, Conservative)",
+        "O3 (No Context, Conservative)",
+        "O3 Mini (No Context, Conservative)", "O3 Mini (With Context, Conservative)",
+        "Pro 2.5 (No Context, Conservative)", "Pro 2.5 (With Context, Conservative)",
+        "Oracle Bayesian"
+    ))) %>%
     ggplot(aes(x = Method, y = rmse, fill = llm)) +
     geom_boxplot(outliers = FALSE) +
     geom_text(
@@ -64,11 +76,13 @@ data_filtered %>%
         )
     ) +
     facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
-    theme_bw() +
+    theme_bw(base_size = 20, base_family = "Avenir Next LT Pro") +
     theme(
-        axis.text.x  = element_blank(),
+        axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.title.x = element_blank()
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        panel.grid = element_blank()
     ) +
     labs(
         y     = "Root Mean Squared Error (RMSE)",
@@ -76,8 +90,9 @@ data_filtered %>%
         color = "Context"
     )
 
+ggsave("~/Downloads/tmptmptmptmp.png", width = 13, height = 9)
 
-data_bias_var <- read_csv("./output/benchmark_bias_variance_results.csv")
+data_bias_var <- read_csv("output/benchmark_bias_variance_results.csv")
 
 # compute arrow endpoints on the same filtered subset
 arrow_coords <- data_bias_var |>
@@ -110,15 +125,17 @@ data_bias_var |>
         "text",
         x = -Inf, y = -Inf,
         label = "Low bias & variance",
-        hjust = -0.1, vjust = -.5,
-        size = 3, color = "darkgreen"
+        hjust = -0.5, vjust = -.5,
+        size = 3, color = "darkgreen",
+        family = "Avenir Next LT Pro"
     ) +
     annotate(
         "text",
         x = Inf, y = Inf,
         label = "High bias & variance",
-        hjust = 1.1, vjust = 1.5,
-        size = 3, color = "red"
+        hjust = 1.5, vjust = 1.5,
+        size = 3, color = "red",
+        family = "Avenir Next LT Pro"
     ) +
     # arrows pointing into the Good/Bad corners
     geom_segment(
@@ -140,4 +157,6 @@ data_bias_var |>
         x = "Overall Bias",
         y = "Overall Variance"
     ) +
-    theme_bw()
+    theme_bw(base_family = "Avenir Next LT Pro", base_size = 20)
+
+ggsave("~/Downloads/bias_variance_plot.png", width = 15, height = 8)

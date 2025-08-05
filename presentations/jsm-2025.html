@@ -30,7 +30,7 @@
       vertical-align: middle;
     }
   </style>
-  <link rel="stylesheet" href="jsm-2025_files/libs/revealjs/dist/theme/quarto-d5976d522e30362e323a08c01ccabc14.css">
+  <link rel="stylesheet" href="jsm-2025_files/libs/revealjs/dist/theme/quarto-0ae8422c4d5c482c1add7417db811363.css">
   <link href="jsm-2025_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
   <link href="jsm-2025_files/libs/revealjs/plugin/reveal-menu/menu.css" rel="stylesheet">
   <link href="jsm-2025_files/libs/revealjs/plugin/reveal-menu/quarto-menu.css" rel="stylesheet">
@@ -128,7 +128,7 @@
   <div class="reveal">
     <div class="slides">
 
-<section id="title-slide" data-background-image="https://dtais.engineering.gwu.edu/sites/g/files/zaxdzs4921/files/header_block/DTAIS%20logo_1c.png, https://rahnavard.org/media/logo_hu6032439a0cdf518af9f282061b335860_10275_0x70_resize_lanczos_3.png" data-background-position="78% 99%, 89% 99%" data-background-size="210px, 75px" height="900" width="1600" class="quarto-title-block center">
+<section id="title-slide" data-background-image="https://dtais.engineering.gwu.edu/sites/g/files/zaxdzs4921/files/header_block/DTAIS%20logo_1c.png, https://rahnavard.org/media/logo_hu6032439a0cdf518af9f282061b335860_10275_0x70_resize_lanczos_3.png" data-background-position="87% 99%, 93% 99%" data-background-size="210px, 75px" class="quarto-title-block center">
   <h1 class="title">Automated Prior Elicitation for Bayesian Metabolomics Analysis</h1>
   <p class="subtitle">JSM 2025 | Flexible Prior Elicitation for Bayesian Analysis</p>
 
@@ -169,26 +169,15 @@ Chiraag Gohel
 </section>
 <section id="effect-size-drives-biological-insight" class="slide level2">
 <h2>Effect size drives biological insight</h2>
-
-<img data-src="https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&amp;type=large" class="r-stretch"><aside class="notes">
+<div class="columns">
+<div class="column" style="width:70%;">
+<p><img data-src="https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&amp;type=large"></p>
+</div><div class="column" style="width:30%;">
 <ul>
-<li>Magnitude &gt; mere significance: With thousands of metabolites tested, p-values alone flag almost everything—effect sizes (fold-change, standardized mean difference) reveal what’s practically important.</li>
-<li>Controls multiple-testing inflation: Ranking by effect size before FDR adjustment helps guard against spurious “top hits.”</li>
-<li>Guides power calculations and study design: Estimated effect sizes feed back into sample-size planning for follow-up experiments or clinical validation.</li>
-<li>Enables pathway-level modeling: Effect sizes aggregate naturally (e.g., via gene-set enrichment or mixed models) to quantify pathway shifts, supporting causal inference.</li>
-<li>Facilitates reproducibility &amp; meta-analysis: Confidence intervals around effect sizes allow results to be combined across labs, instruments, and platforms—key for harmonizing heterogeneous metabolomics studies.</li>
+<li class="fragment">Enables pathway-level modeling: Effect sizes aggregate naturally (e.g., via gene-set enrichment or mixed models) to quantify pathway shifts, supporting causal inference.</li>
+<li class="fragment">Facilitates reproducibility &amp; meta-analysis: Confidence intervals around effect sizes allow results to be combined across labs, instruments, and platforms—key for harmonizing heterogeneous metabolomics studies.</li>
 </ul>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
+</div></div>
 </section>
 <section id="traditional-testing-lacks-power" class="slide level2">
 <h2>Traditional testing lacks power</h2>
@@ -204,64 +193,54 @@ Chiraag Gohel
 <p><img data-src="https://upload.wikimedia.org/wikipedia/en/e/ec/Human_Metabolome_Database_logo.png" style="width:60.0%"></p>
 <p><img data-src="https://pubchem.ncbi.nlm.nih.gov/pcfe/logo/PubChem_logo.png" style="width:60.0%"></p>
 <div class="fragment">
-<ul>
-<li>High dimensionality (<span class="math inline">\(p &gt;&gt; n\)</span>)</li>
-<li>Can lean on assumptions of sparsity</li>
-<li>Prior knowledge from previous studies, literature, and curated databases</li>
-</ul>
+<p><strong>Can we use LLMs as “experts” to inform priors in Bayesian metabolomics models?</strong></p>
 </div>
 </div></div>
-<aside class="notes">
-<p>Peluso et al.&nbsp;2021: “…the complex non-normal structure of metabolic profiles and outcomes may bias the permutation results leading to overly conservative threshold estimates…”</p>
-<p>“Henglin et al.&nbsp;2022 “We observed that when the number of metabolites was similar to or exceeded the number of study subjects, as is common with nontargeted metabolomics performed in small cohorts, sparse multivariate models demonstrated the most consistent results and the most statistical power.””</p>
-<style type="text/css">
-        span.MJX_Assistive_MathML {
-          position:absolute!important;
-          clip: rect(1px, 1px, 1px, 1px);
-          padding: 1px 0 0 0!important;
-          border: 0!important;
-          height: 1px!important;
-          width: 1px!important;
-          overflow: hidden!important;
-          display:block!important;
-      }</style></aside>
 </section>
 <section id="prior-work" class="slide level2">
 <h2>Prior work</h2>
+<div class="fragment">
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="https://arxiv.org/html/2502.10648v2/x1.png" style="width:80.0%"></p>
 <figcaption>Zhang, E. et al.&nbsp;(2025), <a href="https://doi.org/10.48550/arXiv.2502.10648">“LLM-Lasso: A Robust Framework for Domain-Informed Feature Selection and Regularization,”</a> arXiv.</figcaption>
 </figure>
 </div>
+</div>
+<div class="fragment">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="https://arxiv.org/html/2411.17284v5/x1.png"></p>
+<p><img data-src="https://arxiv.org/html/2411.17284v5/x1.png" style="width:80.0%"></p>
 <figcaption>Capstick, A. et al.&nbsp;(2025), <a href="https://doi.org/10.48550/arXiv.2411.17284.">“AutoElicit: Using Large Language Models for Expert Prior Elicitation in Predictive Modelling,”</a> arXiv.</figcaption>
 </figure>
+</div>
 </div>
 </section>
 <section id="prior-elicitation-framework-overview" class="slide level2">
 <h2>Prior elicitation framework overview</h2>
 
-<img data-src="./images/overview.png" class="r-stretch"><ul>
-<li><strong>Metabolite Context Enrichment</strong>: HMDB database integration for biological context (pathways, functions, disease associations)</li>
-<li><strong>Multi-Model LLM Support</strong>: OpenAI (GPT-4o, O3), Google (Gemini 2.0/2.5), with caching and fallback mechanisms</li>
-<li><strong>Qualitative-to-Numerical Mapping</strong>: Conservative/moderate strength mappings with magnitude-driven effect sizes and confidence-calibrated uncertainties</li>
-<li><strong>Hierarchical Bayesian Modeling</strong>: LLM-informed metabolite grouping with intelligent pooling and minimal shrinkage</li>
-<li><strong>Benchmark Framework</strong>: Monte Carlo subsampling against ground truth with bias-variance decomposition</li>
+<img data-src="./images/overview.png" style="width:100.0%" class="r-stretch"><ul>
+<li class="fragment">Do LLMs require extra knowledge from databases or literature?</li>
+<li class="fragment">How do different prompt formulations affect effect size estimation?</li>
+<li class="fragment">Can this process be automated for high-throughput metabolomics studies?</li>
 </ul>
 </section>
 <section id="llm-prior-elicitation-process" class="slide level2">
 <h2>LLM prior elicitation process</h2>
+<div class="fragment">
 <p><strong>Step 1</strong>: LLM analyzes metabolite + study context <span class="math display">\[\text{LLM}(\text{metabolite}, \text{condition}) \rightarrow \{d_j, m_j, c_j, r_j\}\]</span></p>
 <p>where <span class="math inline">\(d_j \in \{\text{increase, decrease, unchanged}\}\)</span> is predicted direction, <span class="math inline">\(m_j \in \{\text{small, moderate, large}\}\)</span> is predicted magnitude, <span class="math inline">\(c_j \in \left(0, 1\right)\)</span> is confidence level, and <span class="math inline">\(r_j\)</span> is a string representing the rationale.</p>
+</div>
+<div class="fragment">
 <p><strong>Step 2</strong>: Map qualitative predictions to numerical priors</p>
 <p><span class="math display">\[\begin{align*}
 \mu_j^{\text{LLM}} &amp;= f_{\mu}\left(m_j, d_j\right) \\
 \sigma_j^{\text{LLM}} &amp;= f_{\sigma}\left(c_j\right)
 \end{align*}\]</span></p>
+</div>
+<div class="fragment">
 <p><strong>Step 3</strong>: Use as informative priors in Bayesian model <span class="math inline">\(\beta_j \sim \mathcal{N}(\mu_j^{\text{LLM}}, \sigma_j^{\text{LLM}})\)</span></p>
+</div>
 </section>
 <section id="priors" class="slide level2">
 <h2>Priors</h2>
@@ -303,9 +282,9 @@ y_{ij} &amp;\sim \mathcal{N}(\mu_{ij}, \sigma_j^2) \\
 <div>
 <p></p><figure class=""><p></p>
 <div>
-<svg aria-roledescription="flowchart-v2" role="graphics-document document" viewbox="0 0 1061.328125 382" style="; display: block; margin: auto auto auto auto" class="flowchart" xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="960" id="mermaid-figure-1" height="288">
-<style>#mermaid-figure-1{font-family:Avenir Next LT Pro;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mermaid-figure-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mermaid-figure-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mermaid-figure-1 .error-icon{fill:hsl(226.4150943396, 88.3333333333%, 81.4705882353%);}#mermaid-figure-1 .error-text{fill:rgb(88.9875, 70.0874999999, 5.5125);stroke:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-figure-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-figure-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-figure-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-figure-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-figure-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-figure-1 .marker{fill:#0b0b0b;stroke:#0b0b0b;}#mermaid-figure-1 .marker.cross{stroke:#0b0b0b;}#mermaid-figure-1 svg{font-family:Avenir Next LT Pro;font-size:16px;}#mermaid-figure-1 p{margin:0;}#mermaid-figure-1 .label{font-family:Avenir Next LT Pro;color:#333;}#mermaid-figure-1 .cluster-label text{fill:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .cluster-label span{color:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .cluster-label span p{background-color:transparent;}#mermaid-figure-1 .label text,#mermaid-figure-1 span{fill:#333;color:#333;}#mermaid-figure-1 .node rect,#mermaid-figure-1 .node circle,#mermaid-figure-1 .node ellipse,#mermaid-figure-1 .node polygon,#mermaid-figure-1 .node path{fill:#F8E08E;stroke:hsl(46.4150943396, 48.3333333333%, 66.4705882353%);stroke-width:1px;}#mermaid-figure-1 .rough-node .label text,#mermaid-figure-1 .node .label text,#mermaid-figure-1 .image-shape .label,#mermaid-figure-1 .icon-shape .label{text-anchor:middle;}#mermaid-figure-1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-figure-1 .rough-node .label,#mermaid-figure-1 .node .label,#mermaid-figure-1 .image-shape .label,#mermaid-figure-1 .icon-shape .label{text-align:center;}#mermaid-figure-1 .node.clickable{cursor:pointer;}#mermaid-figure-1 .root .anchor path{fill:#0b0b0b!important;stroke-width:0;stroke:#0b0b0b;}#mermaid-figure-1 .arrowheadPath{fill:#0b0b0b;}#mermaid-figure-1 .edgePath .path{stroke:#0b0b0b;stroke-width:2.0px;}#mermaid-figure-1 .flowchart-link{stroke:#0b0b0b;fill:none;}#mermaid-figure-1 .edgeLabel{background-color:#0190DB;text-align:center;}#mermaid-figure-1 .edgeLabel p{background-color:#0190DB;}#mermaid-figure-1 .edgeLabel rect{opacity:0.5;background-color:#0190DB;fill:#0190DB;}#mermaid-figure-1 .labelBkg{background-color:rgba(1, 144, 219, 0.5);}#mermaid-figure-1 .cluster rect{fill:hsl(226.4150943396, 88.3333333333%, 81.4705882353%);stroke:hsl(226.4150943396, 48.3333333333%, 71.4705882353%);stroke-width:1px;}#mermaid-figure-1 .cluster text{fill:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .cluster span{color:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Avenir Next LT Pro;font-size:12px;background:hsl(226.4150943396, 88.3333333333%, 81.4705882353%);border:1px solid hsl(226.4150943396, 48.3333333333%, 71.4705882353%);border-radius:2px;pointer-events:none;z-index:100;}#mermaid-figure-1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-figure-1 rect.text{fill:none;stroke-width:0;}#mermaid-figure-1 .icon-shape,#mermaid-figure-1 .image-shape{background-color:#0190DB;text-align:center;}#mermaid-figure-1 .icon-shape p,#mermaid-figure-1 .image-shape p{background-color:#0190DB;padding:2px;}#mermaid-figure-1 .icon-shape rect,#mermaid-figure-1 .image-shape rect{opacity:0.5;background-color:#0190DB;fill:#0190DB;}#mermaid-figure-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#mermaid-figure-1 .prior>*{fill:white!important;}#mermaid-figure-1 .prior span{fill:white!important;}</style>
-<g><marker orient="auto" markerheight="8" markerwidth="8" markerunits="userSpaceOnUse" refy="5" refx="5" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1753895454599_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerheight="8" markerwidth="8" markerunits="userSpaceOnUse" refy="5" refx="4.5" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1753895454599_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5" refx="11" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1753895454599_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5" refx="-1" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1753895454599_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5.2" refx="12" viewbox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-1753895454599_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5.2" refx="-1" viewbox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-1753895454599_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A_B_0" d="M453.32,43.816L394.079,51.013C334.839,58.211,216.357,72.605,157.116,83.303C97.875,94,97.875,101,97.875,104.5L97.875,108"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A_C_0" d="M598.445,43.816L657.686,51.013C716.927,58.211,835.409,72.605,894.65,88.469C953.891,104.333,953.891,121.667,953.891,139C953.891,156.333,953.891,173.667,953.891,185.833C953.891,198,953.891,205,953.891,208.5L953.891,212"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_B_D_0" d="M97.875,166L97.875,170.167C97.875,174.333,97.875,182.667,149.45,193.863C201.025,205.059,304.175,219.118,355.751,226.148L407.326,233.178"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_E_D_0" d="M359.609,166L359.609,170.167C359.609,174.333,359.609,182.667,368.596,190.735C377.582,198.802,395.555,206.605,404.541,210.506L413.527,214.407"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_F_D_0" d="M599.172,166L599.172,170.167C599.172,174.333,599.172,182.667,590.186,190.735C581.199,198.802,563.227,206.605,554.24,210.506L545.254,214.407"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_G_D_0" d="M817.883,166L817.883,170.167C817.883,174.333,817.883,182.667,773.477,193.655C729.07,204.644,640.258,218.287,595.852,225.109L551.446,231.931"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_D_H_0" d="M479.391,270L479.391,274.167C479.391,278.333,479.391,286.667,492.962,294.812C506.534,302.958,533.678,310.916,547.249,314.896L560.821,318.875"></path><path marker-end="url(#mermaid-1753895454599_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_C_H_0" d="M953.891,270L953.891,274.167C953.891,278.333,953.891,286.667,926.637,295.603C899.384,304.539,844.877,314.078,817.623,318.847L790.37,323.616"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignobject height="0" width="0">
+<svg aria-roledescription="flowchart-v2" role="graphics-document document" viewbox="0 0 1085.1328125 382" style="; display: block; margin: auto auto auto auto" class="flowchart" xlink="http://www.w3.org/1999/xlink" xmlns="http://www.w3.org/2000/svg" width="1344" id="mermaid-figure-1" height="480">
+<style>#mermaid-figure-1{font-family:Mona Sans;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mermaid-figure-1 .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mermaid-figure-1 .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mermaid-figure-1 .error-icon{fill:hsl(226.4150943396, 88.3333333333%, 81.4705882353%);}#mermaid-figure-1 .error-text{fill:rgb(88.9875, 70.0874999999, 5.5125);stroke:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .edge-thickness-normal{stroke-width:1px;}#mermaid-figure-1 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-figure-1 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-figure-1 .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-figure-1 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-figure-1 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-figure-1 .marker{fill:#0b0b0b;stroke:#0b0b0b;}#mermaid-figure-1 .marker.cross{stroke:#0b0b0b;}#mermaid-figure-1 svg{font-family:Mona Sans;font-size:16px;}#mermaid-figure-1 p{margin:0;}#mermaid-figure-1 .label{font-family:Mona Sans;color:#333;}#mermaid-figure-1 .cluster-label text{fill:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .cluster-label span{color:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .cluster-label span p{background-color:transparent;}#mermaid-figure-1 .label text,#mermaid-figure-1 span{fill:#333;color:#333;}#mermaid-figure-1 .node rect,#mermaid-figure-1 .node circle,#mermaid-figure-1 .node ellipse,#mermaid-figure-1 .node polygon,#mermaid-figure-1 .node path{fill:#F8E08E;stroke:hsl(46.4150943396, 48.3333333333%, 66.4705882353%);stroke-width:1px;}#mermaid-figure-1 .rough-node .label text,#mermaid-figure-1 .node .label text,#mermaid-figure-1 .image-shape .label,#mermaid-figure-1 .icon-shape .label{text-anchor:middle;}#mermaid-figure-1 .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#mermaid-figure-1 .rough-node .label,#mermaid-figure-1 .node .label,#mermaid-figure-1 .image-shape .label,#mermaid-figure-1 .icon-shape .label{text-align:center;}#mermaid-figure-1 .node.clickable{cursor:pointer;}#mermaid-figure-1 .root .anchor path{fill:#0b0b0b!important;stroke-width:0;stroke:#0b0b0b;}#mermaid-figure-1 .arrowheadPath{fill:#0b0b0b;}#mermaid-figure-1 .edgePath .path{stroke:#0b0b0b;stroke-width:2.0px;}#mermaid-figure-1 .flowchart-link{stroke:#0b0b0b;fill:none;}#mermaid-figure-1 .edgeLabel{background-color:#0190DB;text-align:center;}#mermaid-figure-1 .edgeLabel p{background-color:#0190DB;}#mermaid-figure-1 .edgeLabel rect{opacity:0.5;background-color:#0190DB;fill:#0190DB;}#mermaid-figure-1 .labelBkg{background-color:rgba(1, 144, 219, 0.5);}#mermaid-figure-1 .cluster rect{fill:hsl(226.4150943396, 88.3333333333%, 81.4705882353%);stroke:hsl(226.4150943396, 48.3333333333%, 71.4705882353%);stroke-width:1px;}#mermaid-figure-1 .cluster text{fill:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 .cluster span{color:rgb(88.9875, 70.0874999999, 5.5125);}#mermaid-figure-1 div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:Mona Sans;font-size:12px;background:hsl(226.4150943396, 88.3333333333%, 81.4705882353%);border:1px solid hsl(226.4150943396, 48.3333333333%, 71.4705882353%);border-radius:2px;pointer-events:none;z-index:100;}#mermaid-figure-1 .flowchartTitleText{text-anchor:middle;font-size:18px;fill:#333;}#mermaid-figure-1 rect.text{fill:none;stroke-width:0;}#mermaid-figure-1 .icon-shape,#mermaid-figure-1 .image-shape{background-color:#0190DB;text-align:center;}#mermaid-figure-1 .icon-shape p,#mermaid-figure-1 .image-shape p{background-color:#0190DB;padding:2px;}#mermaid-figure-1 .icon-shape rect,#mermaid-figure-1 .image-shape rect{opacity:0.5;background-color:#0190DB;fill:#0190DB;}#mermaid-figure-1 :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}#mermaid-figure-1 .prior>*{fill:white!important;}#mermaid-figure-1 .prior span{fill:white!important;}</style>
+<g><marker orient="auto" markerheight="8" markerwidth="8" markerunits="userSpaceOnUse" refy="5" refx="5" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1754406775264_flowchart-v2-pointEnd"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 0 L 10 5 L 0 10 z"></path></marker><marker orient="auto" markerheight="8" markerwidth="8" markerunits="userSpaceOnUse" refy="5" refx="4.5" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1754406775264_flowchart-v2-pointStart"><path style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 0 5 L 10 10 L 10 0 z"></path></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5" refx="11" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1754406775264_flowchart-v2-circleEnd"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5" refx="-1" viewbox="0 0 10 10" class="marker flowchart-v2" id="mermaid-1754406775264_flowchart-v2-circleStart"><circle style="stroke-width: 1; stroke-dasharray: 1, 0;" class="arrowMarkerPath" r="5" cy="5" cx="5"></circle></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5.2" refx="12" viewbox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-1754406775264_flowchart-v2-crossEnd"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><marker orient="auto" markerheight="11" markerwidth="11" markerunits="userSpaceOnUse" refy="5.2" refx="-1" viewbox="0 0 11 11" class="marker cross flowchart-v2" id="mermaid-1754406775264_flowchart-v2-crossStart"><path style="stroke-width: 2; stroke-dasharray: 1, 0;" class="arrowMarkerPath" d="M 1,1 l 9,9 M 10,1 l -9,9"></path></marker><g class="root"><g class="clusters"></g><g class="edgePaths"><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A_B_0" d="M463.039,43.927L402.736,51.106C342.432,58.284,221.826,72.642,161.522,83.321C101.219,94,101.219,101,101.219,104.5L101.219,108"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_A_C_0" d="M613.008,43.927L673.311,51.106C733.615,58.284,854.221,72.642,914.525,88.488C974.828,104.333,974.828,121.667,974.828,139C974.828,156.333,974.828,173.667,974.828,185.833C974.828,198,974.828,205,974.828,208.5L974.828,212"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_B_D_0" d="M101.219,166L101.219,170.167C101.219,174.333,101.219,182.667,154.268,193.892C207.316,205.117,313.414,219.234,366.463,226.293L419.512,233.352"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_E_D_0" d="M369.641,166L369.641,170.167C369.641,174.333,369.641,182.667,378.833,190.739C388.026,198.812,406.412,206.624,415.604,210.53L424.797,214.436"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_F_D_0" d="M614.406,166L614.406,170.167C614.406,174.333,614.406,182.667,605.214,190.739C596.021,198.812,577.635,206.624,568.443,210.53L559.25,214.436"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_G_D_0" d="M836.898,166L836.898,170.167C836.898,174.333,836.898,182.667,791.503,193.678C746.107,204.689,655.317,218.379,609.921,225.223L564.526,232.068"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_D_H_0" d="M492.023,270L492.023,274.167C492.023,278.333,492.023,286.667,505.823,294.815C519.622,302.964,547.221,310.927,561.021,314.909L574.82,318.891"></path><path marker-end="url(#mermaid-1754406775264_flowchart-v2-pointEnd)" style="" class="edge-thickness-normal edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link" id="L_C_H_0" d="M974.828,270L974.828,274.167C974.828,278.333,974.828,286.667,942.979,296.307C911.129,305.947,847.43,316.893,815.581,322.366L783.731,327.84"></path></g><g class="edgeLabels"><g class="edgeLabel"><g transform="translate(0, 0)" class="label"><foreignobject height="0" width="0">
 <div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="edgeLabel"></span>
 </div>
@@ -337,7 +316,7 @@ y_{ij} &amp;\sim \mathcal{N}(\mu_{ij}, \sigma_j^2) \\
 <div class="labelBkg" style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="edgeLabel"></span>
 </div>
-</foreignobject></g></g></g><g class="nodes"><g transform="translate(525.8828125, 35)" id="flowchart-A-0" class="node default"><rect height="54" width="145.125" y="-27" x="-72.5625" style="" class="basic label-container"></rect><g transform="translate(-42.5625, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="85.125">
+</foreignobject></g></g></g><g class="nodes"><g transform="translate(538.0234375, 35)" id="flowchart-A-0" class="node default"><rect height="54" width="149.96875" y="-27" x="-74.984375" style="" class="basic label-container"></rect><g transform="translate(-44.984375, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="89.96875">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -345,7 +324,7 @@ Full Dataset
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(97.875, 139)" id="flowchart-B-1" class="node default"><rect height="54" width="179.75" y="-27" x="-89.875" style="" class="basic label-container"></rect><g transform="translate(-59.875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="119.75">
+</foreignobject></g></g><g transform="translate(101.21875, 139)" id="flowchart-B-1" class="node default"><rect height="54" width="186.4375" y="-27" x="-93.21875" style="" class="basic label-container"></rect><g transform="translate(-63.21875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="126.4375">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -353,7 +332,7 @@ Subsample Data
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(953.890625, 243)" id="flowchart-C-3" class="node default"><rect height="54" width="198.875" y="-27" x="-99.4375" style="" class="basic label-container"></rect><g transform="translate(-69.4375, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="138.875">
+</foreignobject></g></g><g transform="translate(974.828125, 243)" id="flowchart-C-3" class="node default"><rect height="54" width="204.609375" y="-27" x="-102.3046875" style="" class="basic label-container"></rect><g transform="translate(-72.3046875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="144.609375">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -361,7 +340,7 @@ Calculate true lnFC
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(479.390625, 243)" id="flowchart-D-5" class="node default"><rect height="54" width="136.203125" y="-27" x="-68.1015625" style="" class="basic label-container"></rect><g transform="translate(-38.1015625, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="76.203125">
+</foreignobject></g></g><g transform="translate(492.0234375, 243)" id="flowchart-D-5" class="node default"><rect height="54" width="137.09375" y="-27" x="-68.546875" style="" class="basic label-container"></rect><g transform="translate(-38.546875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="77.09375">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -369,7 +348,7 @@ Fit Models
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(359.609375, 139)" id="flowchart-E-6" class="node default prior"><rect height="54" width="243.71875" y="-27" x="-121.859375" style="fill:white !important" class="basic label-container"></rect><g transform="translate(-91.859375, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="183.71875">
+</foreignobject></g></g><g transform="translate(369.640625, 139)" id="flowchart-E-6" class="node default prior"><rect height="54" width="250.40625" y="-27" x="-125.203125" style="fill:white !important" class="basic label-container"></rect><g transform="translate(-95.203125, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="190.40625">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -377,7 +356,7 @@ Weakly Informative Priors
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(599.171875, 139)" id="flowchart-F-8" class="node default prior"><rect height="54" width="135.40625" y="-27" x="-67.703125" style="fill:white !important" class="basic label-container"></rect><g transform="translate(-37.703125, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="75.40625">
+</foreignobject></g></g><g transform="translate(614.40625, 139)" id="flowchart-F-8" class="node default prior"><rect height="54" width="139.125" y="-27" x="-69.5625" style="fill:white !important" class="basic label-container"></rect><g transform="translate(-39.5625, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="79.125">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -385,7 +364,7 @@ LLM Priors
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(817.8828125, 139)" id="flowchart-G-10" class="node default prior"><rect height="54" width="202.015625" y="-27" x="-101.0078125" style="fill:white !important" class="basic label-container"></rect><g transform="translate(-71.0078125, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="142.015625">
+</foreignobject></g></g><g transform="translate(836.8984375, 139)" id="flowchart-G-10" class="node default prior"><rect height="54" width="205.859375" y="-27" x="-102.9296875" style="fill:white !important" class="basic label-container"></rect><g transform="translate(-72.9296875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="145.859375">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
@@ -393,11 +372,11 @@ HMDB + LLM Priors
 </p>
 </span>
 </div>
-</foreignobject></g></g><g transform="translate(656.75, 347)" id="flowchart-H-13" class="node default"><rect height="54" width="259.359375" y="-27" x="-129.6796875" style="" class="basic label-container"></rect><g transform="translate(-99.6796875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="199.359375">
+</foreignobject></g></g><g transform="translate(672.234375, 347)" id="flowchart-H-13" class="node default"><rect height="54" width="215.109375" y="-27" x="-107.5546875" style="" class="basic label-container"></rect><g transform="translate(-77.5546875, -12)" style="" class="label"><rect></rect><foreignobject height="24" width="155.109375">
 <div style="display: table-cell; white-space: nowrap; line-height: 1.5; max-width: 200px; text-align: center;" data-xmlns="http://www.w3.org/1999/xhtml">
 <span class="nodeLabel">
 <p>
-Compare model estimators
+Compare estimators
 </p>
 </span>
 </div>
@@ -408,31 +387,86 @@ Compare model estimators
 </div>
 </div>
 </div>
-<p><strong>Ground Truth</strong>: Empirical natural log fold change (lnFC) from full MTBLS1 dataset<sup>1</sup> (n=132)</p>
-<p><span class="math display">\[\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)\]</span></p>
-<aside><ol class="aside-footnotes"><li id="fn1"><p>Salek, R. M., Maguire, M. L., Bentley, E., Rubtsov, D. V., Hough, T., Cheeseman, M., Nunez, D., Sweatman, B. C., Haselden, J. N., Cox, R. D., Connor, S. C., and Griffin, J. L. (2007), <a href="https://doi.org/10.1152/physiolgenomics.00194.2006.">“A metabolomic comparison of urinary changes in type 2 diabetes in mouse, rat, and human,”</a> Physiological Genomics, American Physiological Society.</p></li></ol></aside></section>
+<p><strong>Ground Truth</strong>: Empirical natural log fold change (lnFC) from full MTBLS1 dataset<sup>1</sup>: <span class="math inline">\(\beta_j^{\text{true}} = \log\left(\frac{\bar{y}_j^{\text{case}}}{\bar{y}_j^{\text{control}}}\right)\)</span> (n=132)</p>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>Salek, R. M. et al.&nbsp;(2007), <a href="https://doi.org/10.1152/physiolgenomics.00194.2006.">“A metabolomic comparison of urinary changes in type 2 diabetes in mouse, rat, and human,”</a> Physiological Genomics, American Physiological Society.</p></li></ol></aside></section>
+<section>
+<section id="results" class="title-slide slide level1 center">
+<h1>Results</h1>
+
+</section>
+<section id="examples-of-llm-output" class="slide level2">
+<h2>Examples of LLM Output</h2>
+<div class="quarto-layout-panel" data-layout="[30, -30, 10, -20]">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<p><strong>Acetoacetate</strong></p>
+</div>
+<div class="quarto-figure-spacer quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<p>&nbsp;</p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 11.1%;justify-content: center;">
+<p><img data-src="https://www.sigmaaldrich.com/deepweb/assets/sigmaaldrich/product/structures/344/649/4f016901-2115-4196-8191-7aeee6a5f0f3/640/4f016901-2115-4196-8191-7aeee6a5f0f3.png"></p>
+</div>
+<div class="quarto-figure-spacer quarto-layout-cell" style="flex-basis: 22.2%;justify-content: flex-start;">
+<p>&nbsp;</p>
+</div>
+</div>
+</div>
+<div class="columns">
+<div class="column" style="width:50%;">
+<p>WITH HMDB Context:</p>
+<ul>
+<li>Prediction: increase</li>
+<li>Magnitude: moderate</li>
+<li>Confidence: 0.85</li>
+<li>Reasoning: “In type 2 diabetes, insulin resistance diminishes the hormone’s antilipolytic effect, leading to increased free fatty acid release and subsequent hepatic ketogenesis. This process boosts the production of ketone bodies including acetoacetate. Although the patients have good dietary control and are not in full ketoacidosis, the metabolic imbalance typical of T2DM still promotes a moderate increase in urinary acetoacetate relative to healthy controls.”</li>
+</ul>
+</div><div class="column" style="width:50%;">
+<p>WITHOUT HMDB Context:</p>
+<ul>
+<li>Prediction: increase</li>
+<li>Magnitude: moderate</li>
+<li>Confidence: 0.8</li>
+<li>Reasoning: “Acetoacetate is a ketone body produced during fatty acid oxidation. In type 2 diabetes, even with good dietary control, insulin resistance promotes increased lipolysis which mildly enhances ketogenesis. Although these patients are not in overt ketoacidosis, the metabolic shift can lead to a moderate increase in urinary acetoacetate.”</li>
+</ul>
+</div></div>
+</section>
 <section id="llm-informed-priors-improve-recovery" class="slide level2">
 <h2>LLM-informed priors improve recovery</h2>
 
-<img data-src="jsm-2025_files/figure-revealjs/unnamed-chunk-2-1.png" width="2250" class="r-stretch"><p><span class="math display">\[\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}\]</span></p>
+<img data-src="jsm-2025_files/figure-revealjs/unnamed-chunk-2-1.png" width="2400" class="r-stretch"><p><span class="math display">\[\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}\]</span></p>
+<p>where <span class="math inline">\(\hat{\beta}_j\)</span> is the estimated effect size and <span class="math inline">\(\beta_j^{\text{true}}\)</span> is the ground truth lnFC for metabolite <span class="math inline">\(m_j\)</span>.</p>
+</section>
+<section id="llm-informed-priors-improve-recovery-1" class="slide level2">
+<h2>LLM-informed priors improve recovery</h2>
+
+<img data-src="jsm-2025_files/figure-revealjs/unnamed-chunk-3-1.png" width="2400" class="r-stretch"><p><span class="math display">\[\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}\]</span></p>
+<p>where <span class="math inline">\(\hat{\beta}_j\)</span> is the estimated effect size and <span class="math inline">\(\beta_j^{\text{true}}\)</span> is the ground truth lnFC for metabolite <span class="math inline">\(m_j\)</span>.</p>
+</section>
+<section id="llm-informed-priors-improve-recovery-2" class="slide level2">
+<h2>LLM-informed priors improve recovery</h2>
+
+<img data-src="jsm-2025_files/figure-revealjs/unnamed-chunk-4-1.png" width="2400" class="r-stretch"><p><span class="math display">\[\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}\]</span></p>
 <p>where <span class="math inline">\(\hat{\beta}_j\)</span> is the estimated effect size and <span class="math inline">\(\beta_j^{\text{true}}\)</span> is the ground truth lnFC for metabolite <span class="math inline">\(m_j\)</span>.</p>
 </section>
 <section id="llm-informed-estimators-are-finite-sample-efficient" class="slide level2">
 <h2>LLM Informed estimators are finite-sample efficient</h2>
 
-<img data-src="jsm-2025_files/figure-revealjs/unnamed-chunk-3-1.png" width="1500" class="r-stretch"></section>
+<img data-src="jsm-2025_files/figure-revealjs/unnamed-chunk-5-1.png" width="1500" class="r-stretch"></section>
 <section id="summary" class="slide level2">
 <h2>Summary</h2>
 <ul>
-<li><strong>LLM Prior Elicitation Works</strong>: Automated biological knowledge extraction via LLMs produces informative priors for Bayesian metabolomics analysis.</li>
-<li><strong>Mapping Strategy Matters</strong>: Magnitude-driven effect sizes and confidence-calibrated uncertainties are crucial for translating qualitative LLM insights into effective numerical priors.</li>
-<li><strong>Added Context May Not Matter</strong>: Including biological context from the HMDB in LLM prompts did not significantly improve prior performance in this study.</li>
-<li><strong>Performance is Model Agnostic</strong>: Different LLMs (OpenAI, Google) yielded similar results, indicating robustness across models.</li>
-<li><strong>Practical Impact</strong>: Method particularly valuable for small sample studies (n=5-20) where traditional statistical approaches struggle with high-dimensional metabolomics data.</li>
-<li><strong>Future Directions</strong>: Integration of other databases, alongside more sophisticated mapping approaches and historical data.</li>
+<li><strong>LLM Prior Elicitation Works</strong></li>
+<li><strong>Mapping Strategy Matters</strong></li>
+<li><strong>Added Context May Not Matter</strong></li>
+<li><strong>Performance is Model Agnostic</strong></li>
+<li><strong>Larger Gains at Small Sample Sizes</strong></li>
 </ul>
-
 </section>
+<section id="section" class="slide level2" data-background-image="images/ack.png" data-background-size="contain">
+<h2></h2>
+
+</section></section>
 
     </div>
   <div class="quarto-auto-generated-content" style="display: none;">
@@ -465,7 +499,7 @@ Compare model estimators
       Reveal.initialize({
 'controlsAuto': true,
 'previewLinksAuto': false,
-'pdfSeparateFragments': false,
+'pdfSeparateFragments': true,
 'autoAnimateEasing': "ease",
 'autoAnimateDuration': 1,
 'autoAnimateUnmatched': true,
@@ -616,9 +650,9 @@ Compare model estimators
         // The "normal" size of the presentation, aspect ratio will be preserved
         // when the presentation is scaled to fit different resolutions. Can be
         // specified using percentage units.
-        width: 1050,
+        width: 1600,
 
-        height: 700,
+        height: 900,
 
         // Factor of the display size that should remain empty around the content
         margin: 0.1,
