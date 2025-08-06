@@ -19,14 +19,19 @@ format:
             data-background-size: 210px, 75px
             data-background-position: 87% 99%, 93% 99%
         width: 1600
-        height: 900
+        height: 1000
         pdf-separate-fragments: true
 mermaid-format: svg
 ---
 
+# Introduction
+
+
 ## What is metabolomics?
 
+
 ![From Human Metabolome Technologies](https://humanmetabolome.com/ap/wp-content/uploads/2020/11/metabolomics_01.png){width="80%"}
+
 
 ::: {.notes}
 - Comprehensively profile small-molecule metabolites in cells, tissues, or biofluids to capture the biochemical “phenotype” in real time.
@@ -35,30 +40,20 @@ mermaid-format: svg
 - Discover and validate biomarkers for diagnosis, prognosis, or treatment response
 :::
 
-
-## Effect size drives biological insight
-
-:::: {.columns}
-
-::: {.column width="70%"}
-![](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&type=large)
-:::
-
-::: {.column width="30%" .incremental}
-- Enables pathway-level modeling: Effect sizes aggregate naturally (e.g., via gene-set enrichment or mixed models) to quantify pathway shifts, supporting causal inference.
-- Facilitates reproducibility & meta-analysis: Confidence intervals around effect sizes allow results to be combined across labs, instruments, and platforms—key for harmonizing heterogeneous metabolomics studies.
-:::
-
-::::
-
 ## Traditional testing lacks power
-
-:::: {.columns}
-
-::: {.column width="70%"}
 
 ![Henglin, M. et al. (2022), “Quantitative Comparison of Statistical Methods for Analyzing Human Metabolomics Data,” Metabolites, 12, 519. 
 ](images/univariate_simulation.png)
+
+## Effect size drives biological insight
+
+
+:::: {.columns}
+
+::: {.column width="70%"}
+
+
+![Liang, H., and Song, K. (2023), [“Comprehensive metabolomics and transcriptomics analysis reveals protein and amino acid metabolic characteristics in liver tissue under chronic hypoxia,”](https://doi.org/10.1371/journal.pone.0291798) PLOS ONE, Public Library of Science, 18, e0291798.](https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0291798.g001&type=large)
 
 :::
 
@@ -77,6 +72,7 @@ mermaid-format: svg
 :::
 
 ::::
+
 
 ## Prior work
 
@@ -101,26 +97,30 @@ mermaid-format: svg
 :::
 
 
+# Methods
+
 ## LLM prior elicitation process
 
 ::: {.fragment}
-**Step 1**: LLM analyzes metabolite + study context
+**Approach 1: Categorical Mapping**
 $$\text{LLM}(\text{metabolite}, \text{condition}) \rightarrow \{d_j, m_j, c_j, r_j\}$$
 
 where $d_j \in \{\text{increase, decrease, unchanged}\}$ is predicted direction, $m_j \in \{\text{small, moderate, large}\}$ is predicted magnitude, $c_j \in \left(0, 1\right)$ is confidence level, and $r_j$ is a string representing the rationale.
+
+Then map to numerical priors: $\mu_j^{\text{LLM}} = f_{\mu}(m_j, d_j)$, $\sigma_j^{\text{LLM}} = f_{\sigma}(c_j)$
 :::
 
 ::: {.fragment}
-**Step 2**: Map qualitative predictions to numerical priors
+**Approach 2: Direct Numerical**
+$$\text{LLM}(\text{metabolite}, \text{condition}) \rightarrow \{\mu_j, \sigma_j, r_j\}$$
 
-\begin{align*}
-\mu_j^{\text{LLM}} &= f_{\mu}\left(m_j, d_j\right) \\
-\sigma_j^{\text{LLM}} &= f_{\sigma}\left(c_j\right)
-\end{align*}
+where LLM directly outputs numerical estimates: $\mu_j \in \mathbb{R}$ is predicted log fold change, $\sigma_j > 0$ is prediction uncertainty, and $r_j$ is reasoning.
+
+No mapping required: use LLM outputs directly as $\mu_j^{\text{LLM}} = \mu_j$, $\sigma_j^{\text{LLM}} = \sigma_j$
 :::
 
 ::: {.fragment}
-**Step 3**: Use as informative priors in Bayesian model
+**Both approaches**: Use as informative priors in Bayesian model
 $\beta_j \sim \mathcal{N}(\mu_j^{\text{LLM}}, \sigma_j^{\text{LLM}})$
 :::
 
@@ -235,64 +235,69 @@ class E,F,G prior;
 
 ::::
 
-:::: {.columns}
-
-::: {.column width="50%"}
-WITH HMDB Context:
-
-- Prediction: increase
-- Magnitude: moderate
-- Confidence: 0.85
-- Reasoning: "In type 2 diabetes, insulin resistance diminishes the hormone's antilipolytic effect, leading to increased free fatty acid release and subsequent hepatic ketogenesis. This process boosts the production of ketone bodies including acetoacetate. Although the patients have good dietary control and are not in full ketoacidosis, the metabolic imbalance typical of T2DM still promotes a moderate increase in urinary acetoacetate relative to healthy controls."
-:::
-
-::: {.column width="50%"}
-WITHOUT HMDB Context:
 
 - Prediction: increase
 - Magnitude: moderate
 - Confidence: 0.8
-- Reasoning: "Acetoacetate is a ketone body produced during fatty acid oxidation. In type 2 diabetes, even with good dietary control, insulin resistance promotes increased lipolysis which mildly enhances ketogenesis. Although these patients are not in overt ketoacidosis, the metabolic shift can lead to a moderate increase in urinary acetoacetate."
-:::
+- Reasoning: "Acetoacetate is a ketone body produced during fatty acid oxidation. In type 2 diabetes, even with good dietary control, insulin resistance promotes increased lipolysis which mildly enhances ketogenesis. 
 
-::::
 
-## LLM-informed priors improve recovery
+## LLM-informed priors improve recovery at low sample sizes
+
+::: {.r-stack}
 
 ```{r}
-#| fig-width: 16
-#| fig-height: 5
-
 library(tidyverse)
 library(ggnewscale)
 library(ggplot2)
 library(gghighlight)
+library(viridis)
 
-data <- read_csv("../output/benchmark_prior_recovery_results.csv")
+full_data <- read_csv("../output/benchmark_raw_estimates.csv")
 
-data_filtered <- data %>%
-    filter(Method != "LLM-Informed Hierarchical") %>%
+data <- full_data |>
+    mutate(method = factor(method, levels = c(
+        "uninformative_bayesian",
+        "4o_no_context_conservative", "4o_with_context_conservative",
+        "4o_no_context_quantitative", "4o_with_context_quantitative",
+        "o3-mini_no_context_conservative", "o3-mini_with_context_conservative",
+        "o3-mini_no_context_quantitative", "o3-mini_with_context_quantitative",
+        "o3_no_context_conservative", "o3_no_context_quantitative",
+        "oracle_bayesian"
+    ))) |>
     mutate(
         llm = case_when(
-            str_detect(Method, "Flash 2.0") ~ "Flash 2.0",
-            str_detect(Method, "Pro") ~ "Pro 2.5",
-            str_detect(Method, "GPT-4o") ~ "GPT-4o",
-            str_detect(Method, "O3 Mini") ~ "O3 Mini",
-            str_detect(Method, "Uninformative") ~ "Uninformative",
-            str_detect(Method, "Oracle") ~ "Oracle",
+            str_detect(method, "4o") ~ "GPT-4o",
+            str_detect(method, "o3-mini") ~ "O3 Mini",
+            str_detect(method, "uninformative") ~ "Uninformative",
+            str_detect(method, "oracle") ~ "Oracle",
             TRUE ~ "O3"
-        ),
-        llm = factor(llm, levels = c("Uninformative", "Flash 2.0", "GPT-4o", "O3", "O3 Mini", "Pro 2.5", "Oracle")),
+        )
+    ) |>
+    mutate(
+        type = case_when(
+            str_detect(method, "quantitative") ~ "N",
+            str_detect(method, "conservative") ~ "C",
+            TRUE ~ NA
+        )
+    ) |>
+    mutate(llm = factor(llm, levels = c("Uninformative", "GPT-4o", "O3", "O3 Mini", "Oracle"))) |>
+    mutate(
         context = case_when(
-            str_detect(Method, "With Context") ~ "Context",
-            str_detect(Method, "No Context") ~ "No Context",
+            str_detect(method, "no_context") ~ "No Context",
+            str_detect(method, "with_context") ~ "Context",
             TRUE ~ NA
         ),
         short_ctx = case_when(
-            context == "Context" ~ "C",
-            context == "No Context" ~ "N"
+            context == "Context" ~ "+",
+            context == "No Context" ~ "-"
         )
-    )
+    ) |>
+    group_by(replicate, sample_size, method, llm, short_ctx, context, type)
+
+data_rmse <- data |> summarise(rmse = sqrt(mean((ground_truth - estimate)^2, na.rm = TRUE)), .groups = "drop")
+
+
 
 sample_labeller <- labeller(
     sample_size = c(
@@ -303,35 +308,41 @@ sample_labeller <- labeller(
     )
 )
 
-label_data <- data_filtered %>%
+label_data_rmse_context <- data_rmse %>%
     filter(!is.na(context)) %>%
-    group_by(sample_size, Method, context, short_ctx) %>%
+    group_by(sample_size, method, context, short_ctx) %>%
     summarize(max_rmse = max(rmse, na.rm = TRUE), .groups = "drop") %>%
     group_by(sample_size) %>%
-    mutate(y_pos = max(max_rmse) * 1) %>%
+    mutate(y_pos = max(max_rmse) + .01) %>%
     ungroup()
 
-p <- data_filtered %>%
-    mutate(Method = factor(Method, levels = c(
-        "Uninformative Bayesian",
-        "Flash 2.0 (No Context, Conservative)", "Flash 2.0 (With Context, Conservative)",
-        "GPT-4o (No Context, Conservative)", "GPT-4o (With Context, Conservative)",
-        "O3 (No Context, Conservative)",
-        "O3 Mini (No Context, Conservative)", "O3 Mini (With Context, Conservative)",
-        "Pro 2.5 (No Context, Conservative)", "Pro 2.5 (With Context, Conservative)",
-        "Oracle Bayesian"
-    ))) %>%
-    ggplot(aes(x = Method, y = rmse, fill = llm)) +
-    geom_boxplot(outliers = FALSE)
+label_data_rmse_type <- data_rmse %>%
+    filter(!is.na(type)) %>%
+    group_by(sample_size, method, type) %>%
+    summarize(max_rmse = max(rmse, na.rm = TRUE), .groups = "drop") %>%
+    group_by(sample_size) %>%
+    mutate(y_pos = max(max_rmse) + .02) %>%
+    ungroup()
 
-p +
-    gghighlight(llm == "Uninformative", unhighlighted_params = list(fill = NULL, alpha = 0.3), keep_scales = TRUE, calculate_per_facet = TRUE) +
+
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "black", shape = 21, alpha = .4, show.legend = FALSE) +
     geom_text(
         inherit.aes = FALSE,
-        data = label_data,
-        aes(x = Method, y = y_pos, label = short_ctx, color = context),
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
         size = 3,
-        show.legend = TRUE
+        show.legend = FALSE
     ) +
     scale_color_manual(
         name = "Context",
@@ -340,46 +351,52 @@ p +
             "No Context" = "black"
         ),
         breaks = c("Context", "No Context"),
-        labels = c("With Context", "No Context"),
-        guide = guide_legend(
-            override.aes = list(label = c("C", "N"), size = 4)
-        )
+        labels = c("With Context", "No Context")
     ) +
-    geom_point(aes(x = Method, y = rmse, fill = llm), shape = 22, alpha = .5, show.legend = FALSE) +
     facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
-    theme_bw(base_size = 20, base_family = "Mona Sans") +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
     theme(
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         axis.line.x = element_blank(),
-        grid.panel = element_blank()
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
     ) +
     labs(
         y     = "Root Mean Squared Error (RMSE)",
-        fill  = "LLM Method",
+        fill  = "",
         color = "Context"
     )
-
 ```
 
-$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}$$
-
-where $\hat{\beta}_j$ is the estimated effect size and $\beta_j^{\text{true}}$ is the ground truth lnFC for metabolite $m_j$.
-
-## LLM-informed priors improve recovery
+::: {.fragment}
 
 ```{r}
-#| fig-width: 16
-#| fig-height: 5
-p +
-    gghighlight(llm == "Oracle", unhighlighted_params = list(fill = NULL, alpha = 0.3), keep_scales = TRUE, calculate_per_facet = TRUE) +
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    gghighlight(llm == "Uninformative", 
+    unhighlighted_params = list(fill = NULL, alpha = 0.3),
+    keep_scales = TRUE,
+    calculate_per_facet = TRUE
+) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "white", shape = 21, alpha = .4, show.legend = FALSE) +
     geom_text(
         inherit.aes = FALSE,
-        data = label_data,
-        aes(x = Method, y = y_pos, label = short_ctx, color = context),
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
         size = 3,
-        show.legend = TRUE
+        show.legend = FALSE
     ) +
     scale_color_manual(
         name = "Context",
@@ -388,44 +405,55 @@ p +
             "No Context" = "black"
         ),
         breaks = c("Context", "No Context"),
-        labels = c("With Context", "No Context"),
-        guide = guide_legend(
-            override.aes = list(label = c("C", "N"), size = 4)
-        )
+        labels = c("With Context", "No Context")
     ) +
-    geom_point(aes(x = Method, y = rmse, fill = llm), shape = 22, alpha = .5, show.legend = FALSE) +
     facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
-    theme_bw(base_size = 20, base_family = "Mona Sans") +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
     theme(
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         axis.line.x = element_blank(),
-        grid.panel = element_blank()
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
     ) +
     labs(
         y     = "Root Mean Squared Error (RMSE)",
-        fill  = "LLM Method",
+        fill  = "",
         color = "Context"
     )
 ```
 
-$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}$$
+:::
 
-where $\hat{\beta}_j$ is the estimated effect size and $\beta_j^{\text{true}}$ is the ground truth lnFC for metabolite $m_j$.
 
-## LLM-informed priors improve recovery
+::: {.fragment}
 
 ```{r}
-#| fig-width: 16
-#| fig-height: 5
-p +
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    gghighlight(context == "Context", 
+    unhighlighted_params = list(fill = NULL, alpha = 0.3),
+    keep_scales = TRUE,
+    calculate_per_facet = TRUE
+) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "white", shape = 21, alpha = .4, show.legend = FALSE) +
     geom_text(
         inherit.aes = FALSE,
-        data = label_data,
-        aes(x = Method, y = y_pos, label = short_ctx, color = context),
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
         size = 3,
-        show.legend = TRUE
+        show.legend = FALSE
     ) +
     scale_color_manual(
         name = "Context",
@@ -434,102 +462,343 @@ p +
             "No Context" = "black"
         ),
         breaks = c("Context", "No Context"),
-        labels = c("With Context", "No Context"),
-        guide = guide_legend(
-            override.aes = list(label = c("C", "N"), size = 4)
-        )
+        labels = c("With Context", "No Context")
     ) +
-    geom_point(aes(x = Method, y = rmse, fill = llm), shape = 22, alpha = .5, show.legend = FALSE) +
     facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
-    theme_bw(base_size = 20, base_family = "Mona Sans") +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
     theme(
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
         axis.line.x = element_blank(),
-        grid.panel = element_blank()
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
     ) +
     labs(
         y     = "Root Mean Squared Error (RMSE)",
-        fill  = "LLM Method",
+        fill  = "",
+        color = "Context"
+    )
+```
+:::
+
+
+::: {.fragment}
+```{r}
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    gghighlight(context == "No Context", 
+    unhighlighted_params = list(fill = NULL, alpha = 0.3),
+    keep_scales = TRUE,
+    calculate_per_facet = TRUE
+) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "white", shape = 21, alpha = .4, show.legend = FALSE) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
+        size = 3,
+        show.legend = FALSE
+    ) +
+    scale_color_manual(
+        name = "Context",
+        values = c(
+            "Context" = "black",
+            "No Context" = "black"
+        ),
+        breaks = c("Context", "No Context"),
+        labels = c("With Context", "No Context")
+    ) +
+    facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
+    ) +
+    labs(
+        y     = "Root Mean Squared Error (RMSE)",
+        fill  = "",
+        color = "Context"
+    )
+```
+:::
+
+::: {.fragment}
+```{r}
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    gghighlight(type == "N", 
+    unhighlighted_params = list(fill = NULL, alpha = 0.3),
+    keep_scales = TRUE,
+    calculate_per_facet = TRUE
+) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "white", shape = 21, alpha = .4, show.legend = FALSE) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
+        size = 3,
+        show.legend = FALSE
+    ) +
+    scale_color_manual(
+        name = "Context",
+        values = c(
+            "Context" = "black",
+            "No Context" = "black"
+        ),
+        breaks = c("Context", "No Context"),
+        labels = c("With Context", "No Context")
+    ) +
+    facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
+    ) +
+    labs(
+        y     = "Root Mean Squared Error (RMSE)",
+        fill  = "",
+        color = "Context"
+    )
+```
+:::
+
+::: {.fragment}
+```{r}
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    gghighlight(type == "C", 
+    unhighlighted_params = list(fill = NULL, alpha = 0.3),
+    keep_scales = TRUE,
+    calculate_per_facet = TRUE
+) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "white", shape = 21, alpha = .4, show.legend = FALSE) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
+        size = 3,
+        show.legend = FALSE
+    ) +
+    scale_color_manual(
+        name = "Context",
+        values = c(
+            "Context" = "black",
+            "No Context" = "black"
+        ),
+        breaks = c("Context", "No Context"),
+        labels = c("With Context", "No Context")
+    ) +
+    facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
+    ) +
+    labs(
+        y     = "Root Mean Squared Error (RMSE)",
+        fill  = "",
+        color = "Context"
+    )
+```
+:::
+
+::: {.fragment}
+
+```{r}
+data_rmse |>
+    ggplot(aes(x = method, y = rmse, fill = llm)) +
+    geom_boxplot(outliers = FALSE) +
+    scale_fill_viridis(discrete = TRUE) +
+    geom_point(aes(x = method, y = rmse, fill = llm), color = "white", shape = 21, alpha = .4, show.legend = FALSE) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_context,
+        aes(x = method, y = y_pos, label = short_ctx, color = context),
+        size = 5,
+        show.legend = FALSE
+    ) +
+    geom_text(
+        inherit.aes = FALSE,
+        data = label_data_rmse_type,
+        aes(x = method, y = y_pos, label = type),
+        size = 3,
+        show.legend = FALSE
+    ) +
+    scale_color_manual(
+        name = "Context",
+        values = c(
+            "Context" = "black",
+            "No Context" = "black"
+        ),
+        breaks = c("Context", "No Context"),
+        labels = c("With Context", "No Context")
+    ) +
+    facet_grid(~sample_size, scales = "free_x", labeller = sample_labeller) +
+    theme_bw(base_size = 18, base_family = "Mona Sans") +
+    theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.line.x = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12),
+        panel.grid = element_blank()
+    ) +
+    labs(
+        y     = "Root Mean Squared Error (RMSE)",
+        fill  = "",
         color = "Context"
     )
 ```
 
-$$\text{RMSE} = \sqrt{\frac{1}{n} \sum_{j=1}^{n} (\hat{\beta}_j - \beta_j^{\text{true}})^2}$$
+:::
 
-where $\hat{\beta}_j$ is the estimated effect size and $\beta_j^{\text{true}}$ is the ground truth lnFC for metabolite $m_j$.
+:::
 
-## LLM Informed estimators are finite-sample efficient
+## Bias-Variance Decomposition
+
+::: {.r-stack}
 
 ```{r}
-data_bias_var <- read_csv("../output/benchmark_bias_variance_results.csv")
+#| echo: false
+#| warning: false
 
-# compute arrow endpoints on the same filtered subset
-arrow_coords <- data_bias_var |>
-    filter(method %in% c("o3_no_context_conservative", "uninformative_bayesian", "oracle_bayesian")) |>
+# Calculate bias-variance per replicate for confidence ellipses
+bias_var_per_rep <- full_data %>%
+    filter(method %in% c("4o_no_context_quantitative", "4o_no_context_conservative", "oracle_bayesian", "uninformative_bayesian")) %>%
+    group_by(replicate, method, sample_size, metabolite) %>%
     summarise(
-        min_bias = min(overall_bias, na.rm = TRUE),
-        min_var  = min(overall_variance, na.rm = TRUE),
-        max_bias = max(overall_bias, na.rm = TRUE),
-        max_var  = max(overall_variance, na.rm = TRUE)
-    ) |>
+        mean_estimate = mean(estimate, na.rm = TRUE),
+        ground_truth = first(ground_truth),
+        .groups = "drop"
+    ) %>%
+    group_by(replicate, method, sample_size) %>%
+    summarise(
+        bias_squared = mean(mean_estimate - ground_truth, na.rm = TRUE)^2,
+        variance = var(mean_estimate, na.rm = TRUE),
+        .groups = "drop"
+    ) %>%
     mutate(
-        good_x = min_bias + 0.2 * (max_bias - min_bias),
-        good_y = min_var + 0.2 * (max_var - min_var),
-        bad_x  = min_bias + 0.8 * (max_bias - min_bias),
-        bad_y  = min_var + 0.8 * (max_var - min_var)
+        method_clean = case_when(
+            method == "4o_no_context_quantitative" ~ "4o (N)",
+            method == "4o_no_context_conservative" ~ "4o (C)",
+            method == "oracle_bayesian" ~ "Oracle",
+            method == "uninformative_bayesian" ~ "Uninformative"
+        )
     )
 
-data_bias_var |>
-    filter(method %in% c("o3_no_context_conservative", "uninformative_bayesian", "oracle_bayesian")) |>
-    mutate(
-        method = case_when(
-            method == "o3_no_context_conservative" ~ "O3 No Context",
-            method == "uninformative_bayesian" ~ "Uninformative Bayesian",
-            method == "oracle_bayesian" ~ "Oracle Bayesian"
-        )
-    ) |>
-    ggplot(aes(x = overall_bias, y = overall_variance, color = method)) +
-    geom_point(size = 6) +
-    annotate(
-        "text",
-        x = -Inf, y = -Inf,
-        label = "Low bias & variance",
-        hjust = -0.5, vjust = -.5,
-        size = 3, color = "darkgreen",
-        family = "Avenir Next LT Pro"
+# Create bias-variance plot with confidence regions
+bias_var_per_rep %>%
+    ggplot(aes(x = bias_squared, y = variance, color = method_clean)) +
+    stat_ellipse(level = .68, size = 2, type = "t", alpha = .4) +  # 1 SE region
+    scale_color_viridis(option = "turbo", discrete = TRUE) +
+    geom_point(size = 1, alpha = 0.8) +
+    facet_wrap(~sample_size, labeller = labeller(sample_size = function(x) paste("n =", x))) +
+    theme_bw(base_family = "Mona Sans", base_size = 16) +
+    theme(
+        panel.grid = element_blank()
     ) +
-    annotate(
-        "text",
-        x = Inf, y = Inf,
-        label = "High bias & variance",
-        hjust = 1.5, vjust = 1.5,
-        size = 3, color = "red",
-        family = "Avenir Next LT Pro"
-    ) +
-    # arrows pointing into the Good/Bad corners
-    geom_segment(
-        data = arrow_coords,
-        aes(x = good_x, y = good_y, xend = min_bias, yend = min_var),
-        arrow = arrow(length = unit(0.2, "inches")),
-        color = "darkgreen"
-    ) +
-    geom_segment(
-        data = arrow_coords,
-        aes(x = bad_x, y = bad_y, xend = max_bias, yend = max_var),
-        arrow = arrow(length = unit(0.2, "inches")),
-        color = "red"
-    ) +
-    facet_wrap(~sample_size, labeller = labeller(sample_labeller)) +
-    scale_color_brewer(palette = "Dark2", name = "Method") +
-    scale_shape_manual(values = c(16, 17, 15), name = "Method") +
     labs(
-        x = "Overall Bias",
-        y = "Overall Variance"
-    ) +
-    theme_bw(base_family = "Mona Sans")
+        x = "Bias²",
+        y = "Variance",
+        color = "Method"
+    ) 
 ```
+
+::: {.fragment}
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+bias_var_per_rep %>%
+    ggplot(aes(x = bias_squared, y = variance, color = method_clean)) +
+    stat_ellipse(level = .68, type = "t", size = 2, alpha = .4) +  # 1 SE region
+    gghighlight(method_clean == "Uninformative" | method_clean == "Oracle", unhighlighted_params = list(color = NULL, alpha = 0.3), keep_scales = TRUE, calculate_per_facet = TRUE) +
+    scale_color_viridis(option = "turbo", discrete = TRUE) +
+    geom_point(size = 1, alpha = 0.8) +
+    facet_wrap(~sample_size, labeller = labeller(sample_size = function(x) paste("n =", x))) +
+    theme_bw(base_family = "Mona Sans", base_size = 16) +
+    theme(
+        panel.grid = element_blank()
+    ) +
+    labs(
+        x = "Bias²",
+        y = "Variance",
+        color = "Method"
+    ) 
+```
+:::
+
+::: {.fragment}
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+bias_var_per_rep %>%
+    ggplot(aes(x = bias_squared, y = variance, color = method_clean)) +
+    stat_ellipse(level = .68, type = "t", size = 2, alpha = .4) +  # 1 SE region
+    gghighlight(method_clean %in% c("4o (N)", "4o (C)", "Oracle"), unhighlighted_params = list(color = NULL, alpha = 0.3), keep_scales = TRUE, calculate_per_facet = TRUE) +
+    scale_color_viridis(option = "turbo", discrete = TRUE) +
+    geom_point(size = 1, alpha = 0.8) +
+    facet_wrap(~sample_size, labeller = labeller(sample_size = function(x) paste("n =", x))) +
+    theme_bw(base_family = "Mona Sans", base_size = 16) +
+    theme(
+        panel.grid = element_blank()
+    ) +
+    labs(
+        x = "Bias²",
+        y = "Variance",
+        color = "Method"
+    ) 
+```
+:::
+
+
+:::
 
 ## Summary
 

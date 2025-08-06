@@ -69,3 +69,4 @@ data/hmdb_metabolites.xml
 
 # Output directories
 output/
+/.luarc.json

@@ -1,10 +1,7 @@
 import os
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.metrics import mean_squared_error
-import warnings
 
 # Import the necessary functions from the benchmark script
 from benchmark_prior_recovery import (
@@ -58,7 +55,7 @@ def study_shrinkage(
     global_mean = shrinkage_info["global_mean"]
     global_tau = shrinkage_info["global_tau"]
 
-    print(f"\nHierarchical Model Learned Parameters:")
+    print("\nHierarchical Model Learned Parameters:")
     print(f"  - Global Mean (Center of Shrinkage): {global_mean:.4f}")
     print(f"  - Global Tau (Between-Metabolite SD): {global_tau:.4f}")
 
@@ -70,7 +67,7 @@ def study_shrinkage(
         df_compare["ground_truth_lnfc"], df_compare["shrunken_lnfc"]
     )
 
-    print(f"\nPerformance vs. Ground Truth:")
+    print("\nPerformance vs. Ground Truth:")
     print(f"  - MSE (Unshrunken): {mse_unshrunken:.4f}")
     print(f"  - MSE (Shrunken):   {mse_shrunken:.4f}")
 

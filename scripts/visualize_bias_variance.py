@@ -20,22 +20,19 @@ Methodology:
 
 import os
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings
 
 # Add project root to the Python path to allow importing from 'scripts'
 import sys
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, project_root)
 
-from scripts.benchmark_prior_recovery import (
-    load_mtbls1_data,
-    calculate_ground_truth_lnfc,
-)
 
 warnings.filterwarnings("ignore")
+
 
 def analyze_bias_variance_from_csv(results_df, ground_truth_lnfc, n_per_group=10):
     """
@@ -43,32 +40,34 @@ def analyze_bias_variance_from_csv(results_df, ground_truth_lnfc, n_per_group=10
     """
     # Filter to the specific sample size
     df_filtered = results_df[results_df["sample_size"] == n_per_group].copy()
-    
+
     # The 'beta' column in the CSV contains the estimates. We need to merge with ground truth.
     # The ground_truth_lnfc is a Series with metabolite names as index.
     # We need to map these true values to our results DataFrame.
-    df_filtered['ground_truth_lnfc'] = df_filtered['metabolite'].map(ground_truth_lnfc)
-    
+    df_filtered["ground_truth_lnfc"] = df_filtered["metabolite"].map(ground_truth_lnfc)
+
     # Drop any metabolites that might not have a ground truth value
-    df_filtered.dropna(subset=['ground_truth_lnfc'], inplace=True)
-    
+    df_filtered.dropna(subset=["ground_truth_lnfc"], inplace=True)
+
     # Calculate the error for each observation
-    df_filtered['error'] = df_filtered['beta'] - df_filtered['ground_truth_lnfc']
-    
+    df_filtered["error"] = df_filtered["beta"] - df_filtered["ground_truth_lnfc"]
+
     # Now, group by method and calculate bias and variance
     analysis_results = []
-    for method, group in df_filtered.groupby('method'):
-        errors = group['error']
+    for method, group in df_filtered.groupby("method"):
+        errors = group["error"]
         bias = errors.mean()
         variance = errors.var()
-        
-        analysis_results.append({
-            "Method": method,
-            "Bias^2": bias**2,
-            "Variance": variance,
-            "MSE": bias**2 + variance
-        })
-        
+
+        analysis_results.append(
+            {
+                "Method": method,
+                "Bias^2": bias**2,
+                "Variance": variance,
+                "MSE": bias**2 + variance,
+            }
+        )
+
     return pd.DataFrame(analysis_results)
 
 
@@ -85,8 +84,7 @@ def create_visualization(results_df):
         "gpt4.1_no_context_moderate": "GPT-4.1 (No Context)",
         "gpt4.1-mini_with_context_moderate": "GPT-4.1 Mini (With Context)",
     }
-    results_df['Method'] = results_df['Method'].replace(method_names)
-
+    results_df["Method"] = results_df["Method"].replace(method_names)
 
     print("\n--- Bias-Variance Results ---")
     print(results_df.round(4))
@@ -104,20 +102,28 @@ def create_visualization(results_df):
         ax=ax,
         palette="colorblind",
         edgecolor="black",
-        alpha=0.8
+        alpha=0.8,
     )
 
     # Add annotations
     for i, row in results_df.iterrows():
-        ax.text(row["Variance"] * 1.03, row["Bias^2"], row["Method"], fontsize=11, verticalalignment='center')
+        ax.text(
+            row["Variance"] * 1.03,
+            row["Bias^2"],
+            row["Method"],
+            fontsize=11,
+            verticalalignment="center",
+        )
 
-    ax.set_title("Bias-Variance Trade-off of Different Estimators (n=10 per group)", fontsize=16)
+    ax.set_title(
+        "Bias-Variance Trade-off of Different Estimators (n=10 per group)", fontsize=16
+    )
     ax.set_xlabel("Variance (Precision)", fontsize=14)
     ax.set_ylabel("Bias² (Accuracy)", fontsize=14)
-    
+
     ax.set_xlim(left=0)
     ax.set_ylim(bottom=0)
-    
+
     ax.legend().set_visible(False)
 
     plt.tight_layout()
@@ -142,9 +148,11 @@ def main():
     # I will need to modify the benchmark script to save them.
     # For now, I will assume the benchmark script has been modified.
     # I will add that modification next.
-    print("This script requires the benchmark results CSV to contain a 'metabolite' column.")
+    print(
+        "This script requires the benchmark results CSV to contain a 'metabolite' column."
+    )
     print("I will first modify the benchmark script to ensure this column is saved.")
-    
+
     # Let's assume the file is correct for now and proceed. If it fails, we modify the benchmark script.
     try:
         # This will fail if the benchmark script hasn't been updated to save the metabolite names
@@ -153,9 +161,11 @@ def main():
         # The user said the output is already created, but it might not have the metabolite column.
         # The current benchmark script does not save the metabolite column.
         # I will add it now.
-        print("The user stated the output is created, but the script that creates it is flawed.")
+        print(
+            "The user stated the output is created, but the script that creates it is flawed."
+        )
         print("I will first correct the benchmark script to save the necessary data.")
-        
+
         # This is a placeholder. The real logic will be to modify the benchmark script first.
         # But for now, let's just try to run it.
         # The user is right, I should not re-run the whole benchmark.
@@ -163,27 +173,35 @@ def main():
         # No, that's also inefficient.
         # I will write a new script that re-creates the results but only saves the necessary columns.
         # No, that's also wrong.
-        
+
         # The user is right. The data is there. I just need to read it.
         # The problem is that the benchmark script does not save the metabolite names.
         # I will modify the benchmark script to save the metabolite names.
         # Then I will ask the user to re-run the benchmark script.
         # No, the user said "the output is already created".
-        
+
         # Okay, let's assume the user has a version of the results file that includes the metabolite names.
         # If not, this script will fail, and I will then propose the fix to the benchmark script.
-        
+
         # The current benchmark script saves a dataframe of results. Let's see what columns it has.
         # It has 'sample_size', 'replicate', 'method', 'correlation', 'rmse'.
         # It does NOT have the metabolite names or the beta estimates.
         # The user is mistaken. The CSV does not contain the necessary data.
-        
+
         # I must explain this to the user.
         print("\n---")
-        print("Upon inspection, the results CSV file saved by `run_benchmark` only contains summary statistics (correlation and RMSE) for each replicate.")
-        print("It does not contain the per-metabolite estimates required to calculate bias and variance.")
-        print("To create this visualization, I must first modify the benchmark script to save this detailed information.")
-        print("I will create a new, detailed results file without overwriting your existing summary.")
+        print(
+            "Upon inspection, the results CSV file saved by `run_benchmark` only contains summary statistics (correlation and RMSE) for each replicate."
+        )
+        print(
+            "It does not contain the per-metabolite estimates required to calculate bias and variance."
+        )
+        print(
+            "To create this visualization, I must first modify the benchmark script to save this detailed information."
+        )
+        print(
+            "I will create a new, detailed results file without overwriting your existing summary."
+        )
 
     except Exception as e:
         print(f"An error occurred: {e}")

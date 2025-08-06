@@ -160,3 +160,132 @@ data_bias_var |>
     theme_bw(base_family = "Avenir Next LT Pro", base_size = 20)
 
 ggsave("~/Downloads/bias_variance_plot.png", width = 15, height = 8)
+
+
+full_data <- read_csv("./output/benchmark_raw_estimates.csv")
+
+# Create comprehensive results table
+results_table <- full_data %>%
+    group_by(replicate, method, sample_size) %>%
+    summarise(
+        correlation = cor(ground_truth, estimate, use = "complete.obs"),
+        rmse = sqrt(mean((ground_truth - estimate)^2, na.rm = TRUE)),
+        sign_error_rate = mean(sign(estimate) != sign(ground_truth), na.rm = TRUE),
+        .groups = "drop"
+    ) %>%
+    group_by(method, sample_size) %>%
+    summarise(
+        # Correlation stats
+        mean_r = round(mean(correlation, na.rm = TRUE), 3),
+        se_r = round(sd(correlation, na.rm = TRUE) / sqrt(n()), 3),
+        # RMSE stats
+        mean_rmse = round(mean(rmse, na.rm = TRUE), 3),
+        se_rmse = round(sd(rmse, na.rm = TRUE) / sqrt(n()), 3),
+        # Sign error stats
+        mean_sign_error = round(mean(sign_error_rate, na.rm = TRUE), 3),
+        se_sign_error = round(sd(sign_error_rate, na.rm = TRUE) / sqrt(n()), 3),
+        .groups = "drop"
+    ) %>%
+    mutate(
+        correlation_ci = paste0(mean_r, " (", round(mean_r - 1.96 * se_r, 3), ", ", round(mean_r + 1.96 * se_r, 3), ")"),
+        rmse_ci = paste0(mean_rmse, " (", round(mean_rmse - 1.96 * se_rmse, 3), ", ", round(mean_rmse + 1.96 * se_rmse, 3), ")"),
+        sign_error_ci = paste0(mean_sign_error, " (", round(mean_sign_error - 1.96 * se_sign_error, 3), ", ", round(mean_sign_error + 1.96 * se_sign_error, 3), ")")
+    ) %>%
+    select(method, sample_size, correlation_ci, rmse_ci, sign_error_ci)
+
+# Print formatted results table
+print(results_table)
+
+# Create improved correlation plot
+full_data %>%
+    ggplot(aes(x = ground_truth, y = estimate)) +
+    geom_point(alpha = 0.4, size = 0.8) +
+    geom_smooth(method = "lm", se = TRUE, color = "blue", size = 0.8) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red", alpha = 0.7) +
+    geom_text(
+        data = correlation_stats,
+        aes(label = label),
+        x = -Inf, y = Inf,
+        hjust = -0.1, vjust = 1.5,
+        size = 2.5
+    ) +
+    facet_grid(sample_size ~ method,
+        labeller = labeller(sample_size = function(x) paste("n =", x))
+    ) +
+    theme_bw(base_family = "Mona Sans", base_size = 9) +
+    theme(
+        strip.text = element_text(size = 7),
+        axis.text = element_text(size = 7)
+    ) +
+    labs(
+        x = "Ground Truth (Log Fold Change)",
+        y = "Estimated Log Fold Change"
+    )
+
+full_data |>
+    group_by(replicate, sample_size, method) |>
+    summarise(rmse = sqrt(mean((ground_truth - estimate)^2, na.rm = TRUE)), .groups = "drop") |>
+    ggplot(aes(x = method, y = rmse, fill = method)) +
+    geom_boxplot(outliers = FALSE) +
+    facet_grid(~sample_size) +
+    theme_bw(base_family = "Mona Sans") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    labs(y = "RMSE", x = "Method")
+
+# Check for sign errors for each method
+full_data %>%
+    mutate(sign_error = sign(estimate) != sign(ground_truth)) %>%
+    group_by(method, sample_size) %>%
+    summarise(
+        sign_error_rate = mean(sign_error, na.rm = TRUE),
+        n = n()
+    ) |>
+    ggplot(aes(x = method, y = sign_error_rate, fill = method)) +
+    geom_bar(stat = "identity") +
+    facet_grid(~sample_size) +
+    theme_bw(base_family = "Mona Sans")
+
+full_data %>%
+    group_by(replicate, method, sample_size) %>%
+    summarise(
+        sign_error_rate = mean(sign(estimate) != sign(ground_truth), na.rm = TRUE),
+        .groups = "drop"
+    ) %>%
+    ggplot(aes(x = method, y = sign_error_rate, fill = method)) +
+    geom_boxplot(outliers = F) +
+    facet_grid(~sample_size) +
+    theme_bw(base_family = "Mona Sans") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+bias_var_summary <- full_data %>%
+    filter(method %in% c("o3-mini_no_context_quantitative", "o3-mini_no_context_qualitative", "oracle_bayesian", "uninformative_bayesian")) %>%
+    group_by(method, sample_size, metabolite) %>%
+    summarise(
+        mean_estimate = mean(estimate, na.rm = TRUE),
+        ground_truth = first(ground_truth), # should be same across replicates
+        .groups = "drop"
+    ) %>%
+    group_by(method, sample_size) %>%
+    summarise(
+        # Bias: average difference between mean estimates and ground truth
+        bias = mean(mean_estimate - ground_truth, na.rm = TRUE),
+        # Variance: variance of mean estimates across metabolites
+        variance = var(mean_estimate, na.rm = TRUE),
+        .groups = "drop"
+    )
+
+# Create bias-variance plot
+bias_var_summary %>%
+    ggplot(aes(x = bias^2, y = variance, color = method)) +
+    geom_point(size = 4) +
+    facet_wrap(~sample_size, labeller = labeller(sample_size = function(x) paste("n =", x))) +
+    theme_bw(base_family = "Mona Sans") +
+    labs(
+        x = "Bias (Mean Error)",
+        y = "Variance",
+        color = "Method"
+    )
+
+print(bias_var_summary)
+
+names(full_data)
